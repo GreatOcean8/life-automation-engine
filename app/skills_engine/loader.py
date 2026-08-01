@@ -116,10 +116,11 @@ class SkillsEngine:
             description=description or f"Skill package for {name}",
             rules=rules,
             instructions=instructions,
-            ui_schema=ui_schema
+            ui_schema=ui_schema or {}
         )
         self.loaded_skills[name] = skill_def
         return skill_def, {"instructions": prev_instructions, "rules": prev_rules}
+
 
 
     def revert_skill(self, name: str, prev_state: Dict[str, Any]) -> SkillDefinition:

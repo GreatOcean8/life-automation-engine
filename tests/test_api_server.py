@@ -106,3 +106,39 @@ def test_skills_endpoints():
     saved_skill = res_save.json()
     assert saved_skill["name"] == "api-test-skill"
     assert saved_skill["ui_schema"]["title"] == "API Skill Title"
+
+
+def test_skill_revert_api_endpoint():
+    save_payload = {
+        "name": "api-test-skill",
+        "description": "Created via API test",
+        "instructions": "Step 1, Step 2.",
+        "ui_schema": {"title": "API Skill Title"},
+        "rules": ["Rule 1"]
+    }
+    # Save skill
+    res_save = client.post("/api/skills", json=save_payload)
+    assert res_save.status_code == 200
+    assert res_save.json()["instructions"] == "Step 1, Step 2."
+
+    # Update skill (Version 2)
+    update_payload = {
+        "name": "api-test-skill",
+        "description": "Updated via API test",
+        "instructions": "Modified instructions.",
+        "ui_schema": {"title": "API Skill Title"},
+        "rules": ["Rule 1", "Rule 2"]
+    }
+    res_update = client.post("/api/skills", json=update_payload)
+    assert res_update.status_code == 200
+    assert res_update.json()["instructions"] == "Modified instructions."
+
+    # Revert skill back to Version 1
+    revert_payload = {
+        "instructions": "Step 1, Step 2.",
+        "rules": ["Rule 1"]
+    }
+    res_revert = client.post("/api/skills/api-test-skill/revert", json=revert_payload)
+    assert res_revert.status_code == 200
+    assert res_revert.json()["instructions"] == "Step 1, Step 2."
+    assert res_revert.json()["rules"] == ["Rule 1"]

@@ -71,3 +71,40 @@ def test_skill_save_and_hot_reload():
 
     finally:
         shutil.rmtree(temp_dir)
+
+
+def test_skill_state_snapshot_and_revert():
+    temp_dir = tempfile.mkdtemp()
+    try:
+        engine = SkillsEngine(skills_dir=temp_dir)
+        
+        # 1. Create initial skill state
+        skill, prev_state = engine.save_or_update_skill(
+            name="versioned-skill",
+            description="Version 1",
+            instructions="Version 1 instructions",
+            rules=["Rule V1"]
+        )
+        assert prev_state["instructions"] == ""
+        assert prev_state["rules"] == []
+
+        # 2. Update to Version 2
+        skill_v2, prev_v1 = engine.save_or_update_skill(
+            name="versioned-skill",
+            description="Version 2",
+            instructions="Version 2 instructions",
+            rules=["Rule V2"]
+        )
+        assert prev_v1["instructions"] == "Version 1 instructions"
+        assert prev_v1["rules"] == ["Rule V1"]
+        assert engine.get_skill("versioned-skill").instructions == "Version 2 instructions"
+
+        # 3. Revert back to Version 1 snapshot
+        reverted = engine.revert_skill("versioned-skill", prev_v1)
+        assert reverted.instructions == "Version 1 instructions"
+        assert reverted.rules == ["Rule V1"]
+        assert engine.get_skill("versioned-skill").instructions == "Version 1 instructions"
+
+    finally:
+        shutil.rmtree(temp_dir)
+
