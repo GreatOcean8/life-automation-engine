@@ -190,7 +190,48 @@ export function ConfirmDeleteModal({
   );
 }
 
-export function AuditLogModal({
+class ModalErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("AuditLogModal ErrorBoundary caught error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card p-6 rounded-2xl border border-rose-500/40 w-full max-w-md space-y-4 shadow-2xl text-center">
+            <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-white">Audit Log Display Issue</h3>
+            <p className="text-xs text-slate-300 font-medium">An unexpected formatting error occurred while rendering activity audit logs.</p>
+            <p className="text-[10px] text-rose-400 font-mono bg-slate-900 p-2 rounded border border-rose-500/20 truncate">
+              {this.state.error?.message || "Unknown error"}
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                if (this.props.onClose) this.props.onClose();
+              }}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs border border-slate-700"
+            >
+              Close Audit Drawer
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function AuditLogModalInner({
   isOpen,
   onClose,
   auditLogs,
@@ -210,13 +251,15 @@ export function AuditLogModal({
     safeLogs.forEach(log => {
       if (!log || !log.target_id) return;
       if (!map.has(log.target_id)) {
-        let label = log.target_id;
-        const actionType = log.action_type || '';
+        let label = String(log.target_id);
+        const actionType = String(log.action_type || '');
         if (actionType.startsWith('SKILL')) {
           label = `Skill: ${log.target_id}`;
         } else if (actionType.startsWith('TASK')) {
           const rawDetails = typeof log.details === 'string' ? log.details : '';
-          const taskTitle = log.new_state?.title || log.previous_state?.title || rawDetails.replace(/^(Created task|Archived task|Restored task|Updated details for) '(.*)'$/, '$2');
+          const newStateTitle = typeof log.new_state === 'object' && log.new_state !== null ? log.new_state.title : null;
+          const prevStateTitle = typeof log.previous_state === 'object' && log.previous_state !== null ? log.previous_state.title : null;
+          const taskTitle = newStateTitle || prevStateTitle || rawDetails.replace(/^(Created task|Archived task|Restored task|Updated details for) '(.*)'$/, '$2');
           label = `Task: ${taskTitle || log.target_id}`;
         }
         map.set(log.target_id, { id: log.target_id, label, isSkill: actionType.startsWith('SKILL') });
@@ -228,7 +271,7 @@ export function AuditLogModal({
   // Filter logs based on category, target, and search text
   const filteredLogs = safeLogs.filter(log => {
     if (!log) return false;
-    const actionType = log.action_type || '';
+    const actionType = String(log.action_type || '');
 
     // 1. Category Filter
     if (categoryFilter === 'TASKS' && !actionType.startsWith('TASK')) return false;
@@ -240,19 +283,21 @@ export function AuditLogModal({
     // 3. Search Text Filter
     if (searchText.trim()) {
       const q = searchText.toLowerCase();
-      const matchDetails = (log.details || '').toLowerCase().includes(q);
-      const matchTarget = (log.target_id || '').toLowerCase().includes(q);
+      const matchDetails = String(log.details || '').toLowerCase().includes(q);
+      const matchTarget = String(log.target_id || '').toLowerCase().includes(q);
       const matchAction = actionType.toLowerCase().includes(q);
       if (!matchDetails && !matchTarget && !matchAction) return false;
     }
     return true;
   });
 
-
   const formatNYTime = (isoStr) => {
     if (!isoStr || typeof isoStr !== 'string') return '';
     try {
       const date = new Date(isoStr);
+      if (isNaN(date.getTime())) {
+        return isoStr.length >= 19 ? isoStr.slice(11, 19) : isoStr;
+      }
       return new Intl.DateTimeFormat('en-US', {
         timeZone: 'America/New_York',
         hour: '2-digit',
@@ -363,7 +408,7 @@ export function AuditLogModal({
                 </span>
               ) : log.can_revert ? (
                 <button
-                  onClick={() => onRevertAuditEntry(log.id)}
+                  onClick={() => typeof onRevertAuditEntry === 'function' && onRevertAuditEntry(log.id)}
                   className={`px-3 py-1 border rounded-lg text-xs font-bold flex items-center space-x-1 shrink-0 ml-2 ${
                     log.action_type === 'SKILL_UPDATED' ? 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border-purple-500/40' :
                     log.action_type === 'SKILL_REVERTED' ? 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/40' :
@@ -394,6 +439,16 @@ export function AuditLogModal({
     </div>
   );
 }
+
+export function AuditLogModal(props) {
+  if (!props.isOpen) return null;
+  return (
+    <ModalErrorBoundary onClose={props.onClose}>
+      <AuditLogModalInner {...props} />
+    </ModalErrorBoundary>
+  );
+}
+
 
 
 
