@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertTriangle, RotateCcw, History, Trash2, X } from 'lucide-react';
+import { AlertTriangle, RotateCcw, History, Trash2, X, Check } from 'lucide-react';
+
 
 export function CreateTaskModal({
   isOpen,
