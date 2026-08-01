@@ -19,7 +19,10 @@ from app.subagents.job_scanner import JobScannerSubagent, JobPosting
 from app.subagents.expense_tracker import ExpenseSubagent
 from app.skills_engine.loader import SkillsEngine
 
-from app.storage.db import load_tasks_from_disk, save_tasks_to_disk
+from app.storage.db import (
+    save_tasks_to_disk, load_tasks_from_disk, 
+    save_audit_logs_to_disk, load_audit_logs_from_disk
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +42,7 @@ class MasterOrchestrator(BaseOOAgent):
         )
 
         self.subagents: Dict[str, BaseOOAgent] = {}
-        self.audit_logs: List[AuditLogEntry] = []
+        self.audit_logs: List[AuditLogEntry] = load_audit_logs_from_disk()
 
         # Subagent instances
         self.email_agent = EmailTriageSubagent()
@@ -48,31 +51,46 @@ class MasterOrchestrator(BaseOOAgent):
         self.expense_agent = ExpenseSubagent()
 
         # Register subagents dynamically
-        for agent in [self.email_agent, self.real_estate_agent, self.job_agent, self.expense_agent]:
-            self.register_subagent(agent)
-
+        self.register_subagent(self.email_agent)
+        self.register_subagent(self.real_estate_agent)
+        self.register_subagent(self.job_agent)
+        self.register_subagent(self.expense_agent)
 
         # Skills Engine
         self.skills_engine = SkillsEngine(skills_dir=skills_dir)
+
+        # Restore persisted state from disk
+        restored = load_tasks_from_disk()
+        if restored is not None:
+            self.tasks = restored
+        else:
+            self.tasks: Dict[str, Task] = {}
+            self._seed_initial_tasks()
+        
+        # Seed audit entries for existing tasks if audit_logs is empty
+        if not self.audit_logs:
+            for task in self.tasks.values():
+                entry = AuditLogEntry(
+                    id=f"audit_{uuid.uuid4().hex[:8]}",
+                    action_type="TASK_CREATED",
+                    author=task.creator,
+                    details=f"Task '{task.title}' initialized in system",
+                    target_id=task.task_id,
+                    new_state=task.model_dump()
+                )
+                self.audit_logs.append(entry)
+            save_audit_logs_to_disk(self.audit_logs)
 
     def register_subagent(self, subagent: BaseOOAgent):
         """Registers a subagent instance dynamically in the Orchestrator."""
         self.subagents[subagent.node.node_id] = subagent
         self.log(f"Registered subagent: '{subagent.node.name}' ({subagent.node.node_id})")
 
-
-        # Load persisted tasks from disk if available, otherwise seed defaults
-        loaded = load_tasks_from_disk()
-        if loaded is not None:
-            self.tasks: Dict[str, Task] = loaded
-        else:
-            self.tasks: Dict[str, Task] = {}
-            self._seed_initial_tasks()
-            self.on_state_changed()
-
     def on_state_changed(self):
-        """Automatic state persistence hook invoked whenever an action executes."""
+        """Interceptor callback invoked automatically by @agentic_action."""
         save_tasks_to_disk(self.tasks)
+        save_audit_logs_to_disk(self.audit_logs)
+
 
     def _seed_initial_tasks(self):
         sample_tasks = [
@@ -106,23 +124,28 @@ class MasterOrchestrator(BaseOOAgent):
     def get_task(self, task_id: str) -> Optional[Task]:
         return self.tasks.get(task_id)
 
-    @agentic_action(description="Creates a new human TODO task card")
+    @agentic_action(description="Creates a new task assigned to a human user")
     def create_human_task(self, title: str, description: str = "", priority: TaskPriority = TaskPriority.MEDIUM) -> Task:
-        task_id = f"task_{uuid.uuid4().hex[:8]}"
         task = Task(
-            task_id=task_id,
+            task_id=f"task_{uuid.uuid4().hex[:8]}",
             title=title,
             description=description,
+            priority=priority,
             assignee_type=AssigneeType.HUMAN,
             assignee_id="human_user",
             creator="human_user",
-            status=TaskStatus.TODO,
-            priority=priority
+            status=TaskStatus.TODO
         )
-        task.add_log("Human", "Created task in Master TODO list.")
-        self.tasks[task_id] = task
+        self.tasks[task.task_id] = task
+        self.log(f"Human Task Created: {title}")
+        self.log_audit(
+            action_type="TASK_CREATED",
+            author="Human",
+            details=f"Created task '{title}'",
+            target_id=task.task_id,
+            new_state=task.model_dump()
+        )
         return task
-
 
     def get_graph_nodes(self) -> List[AgentNode]:
         """Returns visual graph topology nodes for real-time UI inspection."""

@@ -48,3 +48,34 @@ def load_tasks_from_disk(filepath: str = STORAGE_FILE) -> Optional[Dict[str, Tas
     except Exception as e:
         logger.error(f"[PERSISTENCE] Failed to load tasks from disk: {str(e)}")
         return None
+
+
+AUDIT_STORAGE_FILE = os.path.join(DATA_DIR, "audit_store.json")
+
+
+def save_audit_logs_to_disk(logs: list, filepath: str = AUDIT_STORAGE_FILE):
+    """Saves audit logs atomically to disk."""
+    try:
+        ensure_data_dir()
+        serialized = [entry.model_dump() if hasattr(entry, 'model_dump') else entry for entry in logs]
+        temp_filepath = f"{filepath}.tmp"
+        with open(temp_filepath, "w", encoding="utf-8") as f:
+            json.dump(serialized, f, indent=2)
+        os.replace(temp_filepath, filepath)
+    except Exception as e:
+        logger.error(f"[PERSISTENCE] Failed to save audit logs: {str(e)}")
+
+
+def load_audit_logs_from_disk(filepath: str = AUDIT_STORAGE_FILE) -> list:
+    """Loads audit logs from disk."""
+    if not os.path.exists(filepath):
+        return []
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        from app.domain.models import AuditLogEntry
+        return [AuditLogEntry.model_validate(raw) for raw in data]
+    except Exception as e:
+        logger.error(f"[PERSISTENCE] Failed to load audit logs: {str(e)}")
+        return []
+
