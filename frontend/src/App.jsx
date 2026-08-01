@@ -3,197 +3,267 @@ import Header from './components/Header';
 import MasterKanbanBoard from './components/MasterKanbanBoard';
 import VisualGraphInspector from './components/VisualGraphInspector';
 import SkillEditor from './components/SkillEditor';
-import { CreateTaskModal, EditTaskModal } from './components/TaskModals';
+import { CreateTaskModal, EditTaskModal, ConfirmDeleteModal, AuditLogModal } from './components/TaskModals';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('workflow'); // 'workflow', 'graph', 'skills'
+  const [activeTab, setActiveTab] = useState('workflow');
   const [tasks, setTasks] = useState([]);
   const [nodes, setNodes] = useState([]);
   const [skills, setSkills] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [selectedNodeId, setSelectedNodeId] = useState('master_orchestrator');
-  
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskDesc, setNewTaskDesc] = useState('');
-  const [editingTask, setEditingTask] = useState(null);
+
+  // Modals & Notifications
   const [notification, setNotification] = useState('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState(null);
+  const [taskToDelete, setTaskToDelete] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 3000); // Polling real-time state every 3s
-    return () => clearInterval(interval);
-  }, []);
+  // New task form state
+  const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
 
-  const fetchData = async () => {
-    try {
-      const [resTasks, resNodes, resSkills] = await Promise.all([
-        fetch('/api/tasks').then(res => res.json()),
-        fetch('/api/graph/nodes').then(res => res.json()),
-        fetch('/api/skills').then(res => res.json()),
-      ]);
-      setTasks(resTasks || []);
-      setNodes(resNodes || []);
-      setSkills(resSkills || []);
-    } catch (err) {
-      console.error("Error fetching state:", err);
-    }
-  };
-
-  const showNotification = (msg) => {
+  const showToast = (msg) => {
     setNotification(msg);
     setTimeout(() => setNotification(''), 4000);
   };
 
-  const handleCreateTask = async (e) => {
+  const fetchTasks = async () => {
+    try {
+      const res = await fetch('/api/tasks');
+      if (res.ok) {
+        const data = await res.json();
+        // Filter out archived tasks for main board view
+        setTasks(data.filter(t => !t.is_archived && t.status !== 'ARCHIVED'));
+      }
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+    }
+  };
+
+  const fetchGraphNodes = async () => {
+    try {
+      const res = await fetch('/api/graph/nodes');
+      if (res.ok) setNodes(await res.json());
+    } catch (err) {
+      console.error("Error fetching graph nodes:", err);
+    }
+  };
+
+  const fetchSkills = async () => {
+    try {
+      const res = await fetch('/api/skills');
+      if (res.ok) setSkills(await res.json());
+    } catch (err) {
+      console.error("Error fetching skills:", err);
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    try {
+      const res = await fetch('/api/audit-logs');
+      if (res.ok) setAuditLogs(await res.json());
+    } catch (err) {
+      console.error("Error fetching audit logs:", err);
+    }
+  };
+
+  const refreshAll = () => {
+    fetchTasks();
+    fetchGraphNodes();
+    fetchSkills();
+    fetchAuditLogs();
+  };
+
+  useEffect(() => {
+    refreshAll();
+    const interval = setInterval(() => {
+      fetchTasks();
+      fetchGraphNodes();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handlers
+  const handleCreateTaskSubmit = async (e) => {
     e.preventDefault();
-    if (!newTaskTitle.trim()) return;
+    if (!newTitle.trim()) return;
+
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTaskTitle, description: newTaskDesc, priority: 'MEDIUM' })
+        body: JSON.stringify({ title: newTitle, description: newDescription })
       });
-      const created = await res.json();
-      setTasks([...tasks, created]);
-      setNewTaskTitle('');
-      setNewTaskDesc('');
-      setIsTaskModalOpen(false);
-      showNotification(`Task "${created.title}" added to your Master TODO board!`);
+      if (res.ok) {
+        showToast('Created new TODO task successfully!');
+        setNewTitle('');
+        setNewDescription('');
+        setIsCreateModalOpen(false);
+        refreshAll();
+      }
     } catch (err) {
-      console.error("Failed to create task:", err);
+      showToast('Failed to create task');
     }
   };
 
-  const handleDeleteTask = async (taskId) => {
-    try {
-      await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-      fetchData();
-      showNotification("Task deleted completely.");
-    } catch (err) {
-      console.error("Failed to delete task:", err);
-    }
-  };
-
-  const handleUpdateTask = async (e) => {
+  const handleEditTaskSubmit = async (e) => {
     e.preventDefault();
-    if (!editingTask) return;
+    if (!taskToEdit) return;
+
     try {
-      await fetch(`/api/tasks/${editingTask.task_id}`, {
+      const res = await fetch(`/api/tasks/${taskToEdit.task_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: editingTask.title,
-          description: editingTask.description,
-          priority: editingTask.priority,
-          status: editingTask.status
+          title: taskToEdit.title,
+          description: taskToEdit.description,
+          priority: taskToEdit.priority,
+          status: taskToEdit.status
         })
       });
-      fetchData();
-      setEditingTask(null);
-      showNotification("Task details updated successfully!");
+      if (res.ok) {
+        showToast(`Updated task '${taskToEdit.title}'`);
+        setTaskToEdit(null);
+        refreshAll();
+      }
     } catch (err) {
-      console.error("Failed to update task:", err);
+      showToast('Failed to update task');
     }
   };
 
-  const handleDelegateTask = async (taskId, targetSubagentId) => {
+  const handleConfirmDeleteTask = async (taskId) => {
     try {
-      const res = await fetch(`/api/tasks/${taskId}/delegate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_subagent_id: targetSubagentId })
-      });
-      const updated = await res.json();
-      fetchData();
-      showNotification(`Task delegated to subagent.`);
+      const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('Moved task to Archive (revert available in Audit Log)');
+        setTaskToDelete(null);
+        refreshAll();
+      }
     } catch (err) {
-      console.error("Failed to delegate task:", err);
+      showToast('Failed to archive task');
     }
   };
 
-  const handleApproveTask = async (taskId) => {
+  const handleRestoreTask = async (taskId) => {
     try {
-      await fetch(`/api/tasks/${taskId}/approve`, { method: 'POST' });
-      fetchData();
-      showNotification("HITL Bill Payment approved & executed!");
+      const res = await fetch(`/api/tasks/${taskId}/restore`, { method: 'POST' });
+      if (res.ok) {
+        showToast('Restored task back to active TODO list!');
+        refreshAll();
+      }
     } catch (err) {
-      console.error("Failed to approve task:", err);
-    }
-  };
-
-  const handleRejectTask = async (taskId) => {
-    try {
-      await fetch(`/api/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED' })
-      });
-      fetchData();
-      showNotification("Task dismissed.");
-    } catch (err) {
-      console.error("Failed to reject task:", err);
-    }
-  };
-
-  const handleTriggerEmail = async () => {
-    try {
-      await fetch('/api/triggers/email-triage', { method: 'POST' });
-      fetchData();
-      showNotification("Triggered periodic Email Inbox & Bill Audit!");
-    } catch (err) {
-      console.error("Failed to trigger email scan:", err);
-    }
-  };
-
-  const handleTriggerMarket = async () => {
-    try {
-      await fetch('/api/triggers/market-scan', { method: 'POST' });
-      fetchData();
-      showNotification("Triggered periodic Real Estate & Job Market scan!");
-    } catch (err) {
-      console.error("Failed to trigger market scan:", err);
-    }
-  };
-
-  const handleTriggerReceiptScan = async () => {
-    try {
-      await fetch('/api/expenses/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_data: "base64_camera_receipt", mock_vendor: "Whole Foods" })
-      });
-      fetchData();
-      showNotification("Multimodal Receipt Photo scanned & parsed into Expense Task!");
-    } catch (err) {
-      console.error("Failed to scan receipt:", err);
-    }
-  };
-
-  const handleSaveSkill = async (skillData) => {
-    try {
-      await fetch('/api/skills', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(skillData)
-      });
-      fetchData();
-      showNotification(`Skill package "${skillData.name}" saved & hot-reloaded!`);
-    } catch (err) {
-      console.error("Failed to save skill:", err);
+      showToast('Failed to restore task');
     }
   };
 
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     try {
-      await fetch(`/api/tasks/${taskId}`, {
+      const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-      fetchData();
-      showNotification(`Task status updated to ${newStatus}`);
+      if (res.ok) {
+        showToast(`Task status updated to ${newStatus}`);
+        refreshAll();
+      }
     } catch (err) {
-      console.error("Failed to update task status:", err);
+      showToast('Failed to move task');
+    }
+  };
+
+  const handleDelegateTask = async (taskId, subagentId) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/delegate?subagent_id=${subagentId}`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        showToast(`Task delegated to ${subagentId}`);
+        refreshAll();
+      }
+    } catch (err) {
+      showToast('Delegation failed');
+    }
+  };
+
+  const handleApproveTask = async (taskId) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/approve`, { method: 'POST' });
+      if (res.ok) {
+        showToast('Approved task execution!');
+        refreshAll();
+      }
+    } catch (err) {
+      showToast('Approval failed');
+    }
+  };
+
+  const handleRejectTask = async (taskId) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' })
+      });
+      if (res.ok) {
+        showToast('Rejected task');
+        refreshAll();
+      }
+    } catch (err) {
+      showToast('Rejection failed');
+    }
+  };
+
+  const handleTriggerEmail = async () => {
+    try {
+      const res = await fetch('/api/triggers/email-triage', { method: 'POST' });
+      if (res.ok) {
+        showToast('Auditing email inbox for bills...');
+        refreshAll();
+      }
+    } catch (err) {
+      showToast('Trigger failed');
+    }
+  };
+
+  const handleTriggerMarket = async () => {
+    try {
+      await fetch('/api/triggers/real-estate', { method: 'POST' });
+      await fetch('/api/triggers/job-scanner', { method: 'POST' });
+      showToast('Scanning real estate & job markets...');
+      refreshAll();
+    } catch (err) {
+      showToast('Market scan failed');
+    }
+  };
+
+  const handleTriggerReceiptScan = async () => {
+    try {
+      const res = await fetch('/api/triggers/expense-multimodal-scan', { method: 'POST' });
+      if (res.ok) {
+        showToast('Scanned physical receipt via camera!');
+        refreshAll();
+      }
+    } catch (err) {
+      showToast('Receipt scan failed');
+    }
+  };
+
+  const handleSaveSkill = async (skillData) => {
+    try {
+      const res = await fetch('/api/skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(skillData)
+      });
+      if (res.ok) {
+        showToast(`Saved and hot-reloaded skill '${skillData.name}'!`);
+        refreshAll();
+      }
+    } catch (err) {
+      showToast('Failed to save skill');
     }
   };
 
@@ -206,25 +276,25 @@ export default function App() {
         </div>
       )}
 
-
       {/* Modular Header */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onRefresh={fetchData}
+        onRefresh={refreshAll}
         onTriggerEmail={handleTriggerEmail}
         onTriggerMarket={handleTriggerMarket}
         onTriggerReceiptScan={handleTriggerReceiptScan}
+        onOpenAuditModal={() => setIsAuditModalOpen(true)}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
         {activeTab === 'workflow' && (
           <MasterKanbanBoard
             tasks={tasks}
-            onOpenCreateModal={() => setIsTaskModalOpen(true)}
-            onOpenEditModal={setEditingTask}
-            onDeleteTask={handleDeleteTask}
+            onOpenCreateModal={() => setIsCreateModalOpen(true)}
+            onOpenEditModal={t => setTaskToEdit(t)}
+            onDeleteTask={tId => setTaskToDelete(tasks.find(x => x.task_id === tId))}
             onDelegateTask={handleDelegateTask}
             onApproveTask={handleApproveTask}
             onRejectTask={handleRejectTask}
@@ -232,12 +302,11 @@ export default function App() {
           />
         )}
 
-
         {activeTab === 'graph' && (
           <VisualGraphInspector
             nodes={nodes}
             selectedNodeId={selectedNodeId}
-            onSelectNode={setSelectedNodeId}
+            onSelectNode={id => setSelectedNodeId(id)}
           />
         )}
 
@@ -251,20 +320,33 @@ export default function App() {
 
       {/* Modals */}
       <CreateTaskModal
-        isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        title={newTaskTitle}
-        setTitle={setNewTaskTitle}
-        description={newTaskDesc}
-        setDescription={setNewTaskDesc}
-        onSubmit={handleCreateTask}
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title={newTitle}
+        setTitle={setNewTitle}
+        description={newDescription}
+        setDescription={setNewDescription}
+        onSubmit={handleCreateTaskSubmit}
       />
 
       <EditTaskModal
-        task={editingTask}
-        onClose={() => setEditingTask(null)}
-        onChange={setEditingTask}
-        onSubmit={handleUpdateTask}
+        task={taskToEdit}
+        onClose={() => setTaskToEdit(null)}
+        onChange={setTaskToEdit}
+        onSubmit={handleEditTaskSubmit}
+      />
+
+      <ConfirmDeleteModal
+        task={taskToDelete}
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={handleConfirmDeleteTask}
+      />
+
+      <AuditLogModal
+        isOpen={isAuditModalOpen}
+        onClose={() => setIsAuditModalOpen(false)}
+        auditLogs={auditLogs}
+        onRestoreTask={handleRestoreTask}
       />
     </div>
   );

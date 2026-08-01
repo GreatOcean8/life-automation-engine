@@ -10,6 +10,9 @@ import logging
 from typing import Dict, List, Optional
 from app.core.agent_base import BaseOOAgent, agentic_action
 from app.domain.models import Task, TaskStatus, TaskPriority, AssigneeType, AgentNode, AgentStatus
+from app.domain.models import (
+    Task, TaskStatus, TaskPriority, AssigneeType, AuditLogEntry, AgentNode, AgentStatus
+)
 from app.subagents.email_triage import EmailTriageSubagent, EmailMessage
 from app.subagents.real_estate import RealEstateSubagent, PropertyListing
 from app.subagents.job_scanner import JobScannerSubagent, JobPosting
@@ -36,6 +39,7 @@ class MasterOrchestrator(BaseOOAgent):
         )
 
         self.subagents: Dict[str, BaseOOAgent] = {}
+        self.audit_logs: List[AuditLogEntry] = []
 
         # Subagent instances
         self.email_agent = EmailTriageSubagent()
@@ -173,12 +177,28 @@ class MasterOrchestrator(BaseOOAgent):
         self.log(f"Human Approved Task: {task.title}")
         return task
 
+    def log_audit(self, action_type: str, author: str, details: str, target_id: str, previous_state: Optional[Dict[str, Any]] = None, new_state: Optional[Dict[str, Any]] = None):
+        """Records an immutable audit event for change tracking and undo capability."""
+        entry = AuditLogEntry(
+            id=f"audit_{uuid.uuid4().hex[:8]}",
+            action_type=action_type,
+            author=author,
+            details=details,
+            target_id=target_id,
+            previous_state=previous_state,
+            new_state=new_state
+        )
+        self.audit_logs.insert(0, entry)
+        if len(self.audit_logs) > 100:
+            self.audit_logs = self.audit_logs[:100]
+
     @agentic_action(description="Updates an existing task's title, description, priority, or status")
     def update_task(self, task_id: str, title: Optional[str] = None, description: Optional[str] = None, priority: Optional[TaskPriority] = None, status: Optional[TaskStatus] = None) -> Optional[Task]:
         task = self.tasks.get(task_id)
         if not task:
             return None
 
+        prev_state = task.model_dump()
         if title is not None:
             task.title = title
         if description is not None:
@@ -190,15 +210,60 @@ class MasterOrchestrator(BaseOOAgent):
 
         task.add_log("Human", "Updated task details.")
         self.log(f"Human Updated Task: {task.title}")
+        self.log_audit(
+            action_type="TASK_UPDATED",
+            author="Human",
+            details=f"Updated details for '{task.title}'",
+            target_id=task.task_id,
+            previous_state=prev_state,
+            new_state=task.model_dump()
+        )
         return task
 
-    @agentic_action(description="Deletes a task from the system completely")
+    @agentic_action(description="Soft-deletes a task (moves to Archive for revert capability)")
     def delete_task(self, task_id: str) -> bool:
-        if task_id in self.tasks:
-            deleted_task = self.tasks.pop(task_id)
-            self.log(f"Human Deleted Task: {deleted_task.title}")
-            return True
-        return False
+        task = self.tasks.get(task_id)
+        if not task:
+            return False
+
+        prev_state = task.model_dump()
+        task.is_archived = True
+        task.status = TaskStatus.CANCELLED
+        task.add_log("Human", "Moved task to Archive.")
+        self.log(f"Human Soft-Deleted Task: {task.title}")
+        
+        self.log_audit(
+            action_type="TASK_DELETED",
+            author="Human",
+            details=f"Archived task '{task.title}'",
+            target_id=task.task_id,
+            previous_state=prev_state,
+            new_state=task.model_dump()
+        )
+        return True
+
+    @agentic_action(description="Restores/Reverts a deleted or archived task back to TODO list")
+    def restore_task(self, task_id: str) -> Optional[Task]:
+        task = self.tasks.get(task_id)
+        if not task or not task.is_archived:
+            return None
+
+        prev_state = task.model_dump()
+        task.is_archived = False
+        task.status = TaskStatus.TODO
+        task.add_log("Human", "Restored task from Archive.")
+        self.log(f"Human Restored Task: {task.title}")
+
+        self.log_audit(
+            action_type="TASK_RESTORED",
+            author="Human",
+            details=f"Restored task '{task.title}' to TODO board",
+            target_id=task.task_id,
+            previous_state=prev_state,
+            new_state=task.model_dump()
+        )
+        return task
+
 
     @agentic_action(description="Triggers periodic Email & Bill Triage audit")
     def run_email_triage_trigger(self) -> List[Task]:

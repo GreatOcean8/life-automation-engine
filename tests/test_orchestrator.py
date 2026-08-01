@@ -51,8 +51,16 @@ def test_update_and_delete_task():
     assert updated.title == "Updated Title"
     assert updated.description == "Updated Description"
     
-    # Test Delete
+    # Test Soft Delete
     success = orchestrator.delete_task(task.task_id)
     assert success is True
-    assert orchestrator.get_task(task.task_id) is None
+    assert task.is_archived is True
+
+    # Test Restore
+    restored = orchestrator.restore_task(task.task_id)
+    assert restored is not None
+    assert restored.is_archived is False
+    assert restored.status == TaskStatus.TODO
+    assert len(orchestrator.audit_logs) >= 3
+
 

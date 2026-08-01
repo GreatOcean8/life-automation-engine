@@ -35,10 +35,21 @@ def test_update_and_delete_task_endpoints():
     assert update_res.json()["title"] == "New Title"
     assert update_res.json()["priority"] == "HIGH"
 
-    # Delete task
+    # Soft Delete task
     delete_res = client.delete(f"/api/tasks/{task_id}")
     assert delete_res.status_code == 200
-    assert delete_res.json()["status"] == "deleted"
+    assert delete_res.json()["status"] == "archived"
+
+    # Restore task
+    restore_res = client.post(f"/api/tasks/{task_id}/restore")
+    assert restore_res.status_code == 200
+    assert restore_res.json()["is_archived"] is False
+
+    # Check Audit Logs
+    audit_res = client.get("/api/audit-logs")
+    assert audit_res.status_code == 200
+    assert len(audit_res.json()) >= 1
+
 
 
 

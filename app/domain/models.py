@@ -5,7 +5,8 @@ Implements the Unified Master Task Model, Agent Graph Nodes, and Skill Schemas.
 
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
+
 from pydantic import BaseModel, Field
 
 
@@ -44,6 +45,17 @@ class TaskLog(BaseModel):
     details: Optional[Dict[str, Any]] = None
 
 
+class AuditLogEntry(BaseModel):
+    id: str
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    action_type: str  # "TASK_CREATED", "TASK_UPDATED", "TASK_DELETED", "TASK_RESTORED", "SKILL_UPDATED"
+    author: str
+    details: str
+    target_id: str
+    previous_state: Optional[Dict[str, Any]] = None
+    new_state: Optional[Dict[str, Any]] = None
+
+
 class Task(BaseModel):
     task_id: str
     title: str
@@ -62,6 +74,7 @@ class Task(BaseModel):
     vendor: Optional[str] = None
     
     # Dynamic UI & Execution metadata
+    is_archived: bool = False
     ui_schema: Optional[Dict[str, Any]] = None
     actions: List[TaskAction] = Field(default_factory=list)
     logs: List[TaskLog] = Field(default_factory=list)

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Sliders, RefreshCw, Mail, Search, Camera } from 'lucide-react';
+import { Layers, Sliders, RefreshCw, Mail, Search, Camera, History } from 'lucide-react';
 
 export default function Header({ 
   activeTab, 
@@ -7,7 +7,8 @@ export default function Header({
   onRefresh, 
   onTriggerEmail, 
   onTriggerMarket, 
-  onTriggerReceiptScan 
+  onTriggerReceiptScan,
+  onOpenAuditModal
 }) {
   return (
     <header className="glass-card border-b border-amber-500/20 sticky top-0 z-30 backdrop-blur-md bg-slate-950/85">
@@ -57,6 +58,14 @@ export default function Header({
         {/* Quick Action Buttons */}
         <div className="flex items-center space-x-2">
           <button
+            onClick={onOpenAuditModal}
+            className="px-2.5 py-1.5 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 rounded-lg text-xs text-slate-200 flex items-center space-x-1.5 transition hover:border-amber-400"
+            title="Activity Audit Log & Undo"
+          >
+            <History className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Audit Log & Undo</span>
+          </button>
+          <button
             onClick={onTriggerEmail}
             className="px-2.5 py-1.5 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 rounded-lg text-xs text-slate-200 flex items-center space-x-1.5 transition hover:border-amber-400"
             title="Scan Emails for Bills"
@@ -92,3 +101,4 @@ export default function Header({
     </header>
   );
 }
+

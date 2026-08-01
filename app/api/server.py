@@ -140,11 +140,27 @@ def update_task_endpoint(task_id: str, req: UpdateTaskRequest):
 
 @app.delete("/api/tasks/{task_id}")
 def delete_task_endpoint(task_id: str):
-    """Deletes a task from the system completely."""
+    """Soft-deletes a task from the system (moves to Archive for revert capability)."""
     success = get_orchestrator().delete_task(task_id)
     if not success:
         raise HTTPException(status_code=404, detail="Task not found.")
-    return {"status": "deleted", "task_id": task_id}
+    return {"status": "archived", "task_id": task_id}
+
+
+@app.post("/api/tasks/{task_id}/restore", response_model=Task)
+def restore_task_endpoint(task_id: str):
+    """Restores/Reverts a deleted or archived task back to the active TODO list."""
+    restored = get_orchestrator().restore_task(task_id)
+    if not restored:
+        raise HTTPException(status_code=404, detail="Archived task not found.")
+    return restored
+
+
+@app.get("/api/audit-logs")
+def get_audit_logs():
+    """Returns activity audit logs for change tracking and undo capability."""
+    return get_orchestrator().audit_logs
+
 
 
 # =============================================================================
