@@ -202,10 +202,12 @@ export function AuditLogModal({
 
   if (!isOpen) return null;
 
+  const safeLogs = Array.isArray(auditLogs) ? auditLogs : [];
+
   // Build friendly target list from audit logs defensively
   const targetOptions = React.useMemo(() => {
     const map = new Map();
-    (auditLogs || []).forEach(log => {
+    safeLogs.forEach(log => {
       if (!log || !log.target_id) return;
       if (!map.has(log.target_id)) {
         let label = log.target_id;
@@ -221,10 +223,10 @@ export function AuditLogModal({
       }
     });
     return Array.from(map.values());
-  }, [auditLogs]);
+  }, [safeLogs]);
 
   // Filter logs based on category, target, and search text
-  const filteredLogs = (auditLogs || []).filter(log => {
+  const filteredLogs = safeLogs.filter(log => {
     if (!log) return false;
     const actionType = log.action_type || '';
 
@@ -245,6 +247,7 @@ export function AuditLogModal({
     }
     return true;
   });
+
 
   const formatNYTime = (isoStr) => {
     if (!isoStr || typeof isoStr !== 'string') return '';

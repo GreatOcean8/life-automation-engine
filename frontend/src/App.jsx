@@ -63,11 +63,18 @@ export default function App() {
   const fetchAuditLogs = async () => {
     try {
       const res = await fetch('/api/audit-logs');
-      if (res.ok) setAuditLogs(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(Array.isArray(data) ? data : []);
+      } else {
+        setAuditLogs([]);
+      }
     } catch (err) {
       console.error("Error fetching audit logs:", err);
+      setAuditLogs([]);
     }
   };
+
 
   const refreshAll = () => {
     fetchTasks();
@@ -284,18 +291,24 @@ export default function App() {
   };
 
   const handleRevertAuditEntry = async (auditId) => {
+
     try {
       const res = await fetch(`/api/audit-logs/${auditId}/revert`, { method: 'POST' });
       if (res.ok) {
         const updatedLogs = await res.json();
-        setAuditLogs(updatedLogs);
+        if (Array.isArray(updatedLogs)) {
+          setAuditLogs(updatedLogs);
+        }
         showToast('Reverted action successfully!');
         refreshAll();
+      } else {
+        showToast('Failed to revert action');
       }
     } catch (err) {
       showToast('Failed to revert action');
     }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
