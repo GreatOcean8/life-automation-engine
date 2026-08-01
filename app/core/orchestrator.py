@@ -34,15 +34,19 @@ class MasterOrchestrator(BaseOOAgent):
     spawns subagents, handles HITL approvals, and manages real-time graph nodes.
     """
 
-    def __init__(self, skills_dir: str = "skills"):
+    def __init__(self, data_dir: str = "data", skills_dir: str = "skills"):
         super().__init__(
             node_id="master_orchestrator",
             name="Master Orchestrator Agent",
             agent_type="Orchestrator"
         )
 
+        self.data_dir = data_dir
+        self.tasks_file = os.path.join(data_dir, "tasks_store.json")
+        self.audit_file = os.path.join(data_dir, "audit_store.json")
+
         self.subagents: Dict[str, BaseOOAgent] = {}
-        self.audit_logs: List[AuditLogEntry] = load_audit_logs_from_disk()
+        self.audit_logs: List[AuditLogEntry] = load_audit_logs_from_disk(filepath=self.audit_file)
 
         # Subagent instances
         self.email_agent = EmailTriageSubagent()
@@ -60,7 +64,7 @@ class MasterOrchestrator(BaseOOAgent):
         self.skills_engine = SkillsEngine(skills_dir=skills_dir)
 
         # Restore persisted state from disk
-        restored = load_tasks_from_disk()
+        restored = load_tasks_from_disk(filepath=self.tasks_file)
         if restored is not None:
             self.tasks = restored
         else:
@@ -79,7 +83,7 @@ class MasterOrchestrator(BaseOOAgent):
                     new_state=task.model_dump()
                 )
                 self.audit_logs.append(entry)
-            save_audit_logs_to_disk(self.audit_logs)
+            save_audit_logs_to_disk(self.audit_logs, filepath=self.audit_file)
 
     def register_subagent(self, subagent: BaseOOAgent):
         """Registers a subagent instance dynamically in the Orchestrator."""
@@ -88,8 +92,9 @@ class MasterOrchestrator(BaseOOAgent):
 
     def on_state_changed(self):
         """Interceptor callback invoked automatically by @agentic_action."""
-        save_tasks_to_disk(self.tasks)
-        save_audit_logs_to_disk(self.audit_logs)
+        save_tasks_to_disk(self.tasks, filepath=self.tasks_file)
+        save_audit_logs_to_disk(self.audit_logs, filepath=self.audit_file)
+
 
 
     def _seed_initial_tasks(self):
@@ -303,7 +308,8 @@ class MasterOrchestrator(BaseOOAgent):
                 entry.is_reverted = True
                 entry.can_revert = False
                 break
-        save_audit_logs_to_disk(self.audit_logs)
+        save_audit_logs_to_disk(self.audit_logs, filepath=self.audit_file)
+
 
     def revert_audit_entry(self, audit_id: str) -> Optional[AuditLogEntry]:
         """

@@ -1,11 +1,17 @@
-"""
-Integration tests for FastAPI REST Endpoints.
-"""
-
+import pytest
 from fastapi.testclient import TestClient
 from app.api.server import app
+from app.core.orchestrator import MasterOrchestrator
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def isolate_test_environment(tmp_path, monkeypatch):
+    """Isolates tests from mutating production tasks_store.json and audit_store.json."""
+    test_orchestrator = MasterOrchestrator(data_dir=str(tmp_path), skills_dir=str(tmp_path))
+    test_orchestrator.create_human_task("Call dentist to reschedule appointment", "Reschedule for next Thursday afternoon.")
+    test_orchestrator.create_human_task("Review Q3 Investment Strategy", "Check portfolio allocation and cash reserves.")
+    monkeypatch.setattr("app.api.server.orchestrator", test_orchestrator)
 
 
 def test_health_check_endpoint():
@@ -14,6 +20,7 @@ def test_health_check_endpoint():
     data = response.json()
     assert data["status"] == "online"
     assert data["system"] == "Personal Life Automation Engine"
+
 
 
 def test_get_tasks_endpoint():

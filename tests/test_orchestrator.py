@@ -6,15 +6,15 @@ from app.core.orchestrator import MasterOrchestrator
 from app.domain.models import TaskStatus, TaskPriority, AssigneeType
 
 
-def test_master_orchestrator_initialization():
-    orchestrator = MasterOrchestrator()
+def test_master_orchestrator_initialization(tmp_path):
+    orchestrator = MasterOrchestrator(data_dir=str(tmp_path), skills_dir=str(tmp_path))
     assert len(orchestrator.tasks) >= 2  # Sample tasks seeded
     assert len(orchestrator.subagents) == 4  # Email, RealEstate, Job, Expense
     assert len(orchestrator.get_graph_nodes()) == 5  # Master + 4 subagents
 
 
-def test_create_human_task():
-    orchestrator = MasterOrchestrator()
+def test_create_human_task(tmp_path):
+    orchestrator = MasterOrchestrator(data_dir=str(tmp_path), skills_dir=str(tmp_path))
     task = orchestrator.create_human_task(
         title="Buy anniversary gift",
         description="Search for vintage watch.",
@@ -26,8 +26,8 @@ def test_create_human_task():
     assert orchestrator.get_task(task.task_id) is not None
 
 
-def test_email_triage_trigger_hitl_approval():
-    orchestrator = MasterOrchestrator()
+def test_email_triage_trigger_hitl_approval(tmp_path):
+    orchestrator = MasterOrchestrator(data_dir=str(tmp_path), skills_dir=str(tmp_path))
     created_tasks = orchestrator.run_email_triage_trigger()
     
     assert len(created_tasks) == 2
@@ -42,8 +42,8 @@ def test_email_triage_trigger_hitl_approval():
     assert "Approved HITL action" in approved_task.logs[-1].message
 
 
-def test_update_and_delete_task():
-    orchestrator = MasterOrchestrator()
+def test_update_and_delete_task(tmp_path):
+    orchestrator = MasterOrchestrator(data_dir=str(tmp_path), skills_dir=str(tmp_path))
     task = orchestrator.create_human_task("Initial Title", "Initial Description")
     
     # Test Update
@@ -64,8 +64,8 @@ def test_update_and_delete_task():
     assert len(orchestrator.audit_logs) >= 3
 
 
-def test_sequential_lifo_audit_undo_stack():
-    orchestrator = MasterOrchestrator()
+def test_sequential_lifo_audit_undo_stack(tmp_path):
+    orchestrator = MasterOrchestrator(data_dir=str(tmp_path), skills_dir=str(tmp_path))
     target_id = "test_skill_target"
 
     # Simulate 3 sequential edits
