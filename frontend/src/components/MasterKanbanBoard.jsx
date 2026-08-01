@@ -177,14 +177,15 @@ export default function MasterKanbanBoard({
                 </button>
                 <button
                   onClick={() => { onUpdateTaskStatus(t.task_id, 'DONE'); setActiveMoveTaskId(null); }}
-                  className="w-full text-left px-2 py-1 rounded hover:bg-slate-800 text-emerald-400 flex items-center justify-between"
+                  className="w-full text-left px-2 py-1 rounded hover:bg-slate-800 text-amber-300 flex items-center justify-between font-semibold"
                 >
                   <span>DONE</span>
-                  {t.status === 'DONE' && <Check className="w-3 h-3 text-emerald-400" />}
+                  {t.status === 'DONE' && <Check className="w-3 h-3 text-amber-400" />}
                 </button>
               </div>
             )}
           </div>
+
 
           <button onClick={() => onOpenEditModal(t)} className="text-slate-400 hover:text-slate-200 p-1" title="Edit Task">
             <Edit3 className="w-3.5 h-3.5" />
@@ -411,14 +412,14 @@ export default function MasterKanbanBoard({
           <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800 space-y-3 min-h-[400px]">
             <div 
               onClick={() => setIsDoneCollapsed(!isDoneCollapsed)}
-              className="flex items-center justify-between text-xs font-bold text-emerald-400 pb-2 border-b border-slate-800 cursor-pointer hover:opacity-90"
+              className="flex items-center justify-between text-xs font-bold text-amber-300 pb-2 border-b border-slate-800 cursor-pointer hover:opacity-90"
             >
               <div className="flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <CheckCircle2 className="w-4 h-4 text-amber-400" />
                 <span className="text-sm">Completed</span>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-full font-mono text-xs border border-emerald-500/30">
+                <span className="bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full font-mono text-xs border border-amber-500/30">
                   {doneTasks.length}
                 </span>
                 <span className="text-slate-400 p-1">
@@ -438,6 +439,7 @@ export default function MasterKanbanBoard({
             )}
           </div>
         </div>
+
 
       </div>
     </div>
