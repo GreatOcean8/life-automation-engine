@@ -214,8 +214,8 @@ export function AuditLogModal({
         </div>
 
         <div className="flex-1 overflow-auto space-y-2.5 pr-1">
-          {auditLogs.length > 0 ? auditLogs.map(log => (
-            <div key={log.id} className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs space-y-1.5 flex items-start justify-between">
+          {auditLogs && auditLogs.length > 0 ? auditLogs.map(log => (
+            <div key={log.id || Math.random()} className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs space-y-1.5 flex items-start justify-between">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
@@ -224,13 +224,16 @@ export function AuditLogModal({
                     log.action_type === 'TASK_RESTORED' || log.action_type === 'SKILL_REVERTED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
                     'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                   }`}>
-                    {log.action_type}
+                    {log.action_type || 'EVENT'}
                   </span>
-                  <span className="text-[11px] text-slate-500 font-mono">{log.timestamp.slice(11, 19)}</span>
-                  <span className="text-[11px] text-slate-400 font-medium">by {log.author}</span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    {log.timestamp && typeof log.timestamp === 'string' ? log.timestamp.slice(11, 19) : ''}
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-medium">by {log.author || 'System'}</span>
                 </div>
-                <div className="text-slate-200 font-medium">{log.details}</div>
+                <div className="text-slate-200 font-medium">{log.details || 'Activity event'}</div>
               </div>
+
 
               {log.is_reverted ? (
                 <span className="px-2.5 py-1 bg-slate-800 text-slate-400 rounded-lg text-[11px] font-medium flex items-center space-x-1 shrink-0 ml-2">
