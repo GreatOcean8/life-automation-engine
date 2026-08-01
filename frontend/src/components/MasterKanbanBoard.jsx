@@ -21,20 +21,14 @@ export default function MasterKanbanBoard({
   const [activeMoveTaskId, setActiveMoveTaskId] = useState(null);
 
   // Column Collapsed State
-  const [isTodoCollapsed, setIsTodoCollapsed] = useState(false); // TODO is always focused by default
+  const [isTodoCollapsed, setIsTodoCollapsed] = useState(false); // TODO focused by default
   const [isRunningCollapsed, setIsRunningCollapsed] = useState(true); // Collapsed by default
   const [isApprovalCollapsed, setIsApprovalCollapsed] = useState(true); // Smart auto-expand if > 0
   const [isDoneCollapsed, setIsDoneCollapsed] = useState(true); // Collapsed by default
 
-  // Priority numerical weights for sorting
-  const priorityWeight = {
-    URGENT: 4,
-    HIGH: 3,
-    MEDIUM: 2,
-    LOW: 1
-  };
+  const priorityWeight = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
 
-  // Filter & Sort Tasks dynamically
+  // Filter & Sort Tasks
   const filteredAndSortedTasks = useMemo(() => {
     return tasks
       .filter(t => {
@@ -48,40 +42,30 @@ export default function MasterKanbanBoard({
           (filterAssignee === 'HUMAN' && t.assignee_type === 'HUMAN') ||
           (filterAssignee === 'AGENT' && t.assignee_type === 'AGENT');
 
-        const matchPriority = 
-          filterPriority === 'ALL' || t.priority === filterPriority;
+        const matchPriority = filterPriority === 'ALL' || t.priority === filterPriority;
 
         return matchSearch && matchAssignee && matchPriority;
       })
       .sort((a, b) => {
-        if (sortBy === 'PRIORITY_DESC') {
-          return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
-        }
-        if (sortBy === 'NEWEST') {
-          return b.task_id.localeCompare(a.task_id);
-        }
-        if (sortBy === 'OLDEST') {
-          return a.task_id.localeCompare(b.task_id);
-        }
-        if (sortBy === 'TITLE_ASC') {
-          return a.title.localeCompare(b.title);
-        }
+        if (sortBy === 'PRIORITY_DESC') return (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+        if (sortBy === 'NEWEST') return b.task_id.localeCompare(a.task_id);
+        if (sortBy === 'OLDEST') return a.task_id.localeCompare(b.task_id);
+        if (sortBy === 'TITLE_ASC') return a.title.localeCompare(b.title);
         return 0;
       });
   }, [tasks, searchTerm, filterAssignee, filterPriority, sortBy]);
 
-  // Group into columns
   const todoTasks = filteredAndSortedTasks.filter(t => t.status === 'TODO');
   const runningTasks = filteredAndSortedTasks.filter(t => t.status === 'RUNNING');
   const approvalTasks = filteredAndSortedTasks.filter(t => t.status === 'WAITING_FOR_APPROVAL');
   const doneTasks = filteredAndSortedTasks.filter(t => t.status === 'DONE' || t.status === 'CANCELLED');
 
-  // Smart Auto-Expand NEED APPROVAL panel when items require human action!
+  // Smart Auto-Expand NEED APPROVAL panel when items require human action
   useEffect(() => {
     if (approvalTasks.length > 0) {
-      setIsApprovalCollapsed(false); // Auto-expand when HITL items are queued!
+      setIsApprovalCollapsed(false);
     } else {
-      setIsApprovalCollapsed(true); // Auto-collapse when empty
+      setIsApprovalCollapsed(true);
     }
   }, [approvalTasks.length]);
 
@@ -235,7 +219,7 @@ export default function MasterKanbanBoard({
               {filteredAndSortedTasks.length} tasks
             </span>
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">Focused TODO view with smart auto-collapsing agent panels.</p>
+          <p className="text-xs text-slate-400 mt-0.5">Focused TODO view with click-to-expand agent panels.</p>
         </div>
 
         <button
@@ -317,13 +301,16 @@ export default function MasterKanbanBoard({
         </div>
       </div>
 
-      {/* Dynamic Grid Layout: TODO Column (FOCUSED) + Collapsible Columns */}
+      {/* Dynamic Grid Layout */}
       <div className="flex flex-col md:flex-row gap-4 items-start">
         
         {/* 1. TODO COLUMN (PRIMARY / FOCUSED VIEW) */}
-        <div className={`flex-1 transition-all duration-300 w-full ${isTodoCollapsed ? 'md:w-16 md:flex-none' : ''}`}>
+        <div className={`transition-all duration-300 w-full ${isTodoCollapsed ? 'md:w-52 md:flex-none' : 'flex-1'}`}>
           <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-3 min-h-[400px]">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-200 pb-2 border-b border-slate-800">
+            <div 
+              onClick={() => setIsTodoCollapsed(!isTodoCollapsed)}
+              className="flex items-center justify-between text-xs font-bold text-slate-200 pb-2 border-b border-slate-800 cursor-pointer hover:opacity-90"
+            >
               <div className="flex items-center space-x-2">
                 <Clock className="w-4 h-4 text-cyan-400" />
                 <span className="text-sm">My TODOs</span>
@@ -332,12 +319,9 @@ export default function MasterKanbanBoard({
                 <span className="bg-cyan-500/20 text-cyan-400 px-2.5 py-0.5 rounded-full font-mono text-xs border border-cyan-500/30">
                   {todoTasks.length}
                 </span>
-                <button
-                  onClick={() => setIsTodoCollapsed(!isTodoCollapsed)}
-                  className="text-slate-500 hover:text-slate-300 p-1"
-                >
+                <span className="text-slate-400 p-1">
                   {isTodoCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+                </span>
               </div>
             </div>
 
@@ -354,30 +338,27 @@ export default function MasterKanbanBoard({
         </div>
 
         {/* 2. WAITING FOR APPROVAL COLUMN (SMART AUTO-EXPAND WHEN ITEMS REQUIRE HUMAN ACTION) */}
-        <div className={`transition-all duration-300 w-full ${isApprovalCollapsed ? 'md:w-48 md:flex-none' : 'flex-1'}`}>
+        <div className={`transition-all duration-300 w-full ${isApprovalCollapsed ? 'md:w-52 md:flex-none' : 'flex-1'}`}>
           <div className={`p-4 rounded-2xl border space-y-3 min-h-[400px] transition-all ${
             approvalTasks.length > 0 ? 'bg-amber-950/20 border-amber-500/50 shadow-lg shadow-amber-500/10' : 'bg-slate-900/40 border-slate-800'
           }`}>
-            <div className="flex items-center justify-between text-xs font-bold text-amber-400 pb-2 border-b border-slate-800">
-              <button
-                onClick={() => setIsApprovalCollapsed(!isApprovalCollapsed)}
-                className="flex items-center space-x-2 text-left hover:opacity-80"
-              >
+            <div 
+              onClick={() => setIsApprovalCollapsed(!isApprovalCollapsed)}
+              className="flex items-center justify-between text-xs font-bold text-amber-400 pb-2 border-b border-slate-800 cursor-pointer hover:opacity-90"
+            >
+              <div className="flex items-center space-x-2">
                 <AlertTriangle className={`w-4 h-4 ${approvalTasks.length > 0 ? 'animate-bounce text-amber-400' : 'text-slate-500'}`} />
                 <span className="text-sm">Need Approval</span>
-              </button>
+              </div>
               <div className="flex items-center space-x-2">
                 <span className={`px-2.5 py-0.5 rounded-full font-mono text-xs border ${
                   approvalTasks.length > 0 ? 'bg-amber-500/30 text-amber-300 border-amber-500/40 animate-pulse' : 'bg-slate-800 text-slate-500 border-slate-700'
                 }`}>
                   {approvalTasks.length}
                 </span>
-                <button
-                  onClick={() => setIsApprovalCollapsed(!isApprovalCollapsed)}
-                  className="text-slate-400 hover:text-white p-1"
-                >
+                <span className="text-slate-400 p-1">
                   {isApprovalCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+                </span>
               </div>
             </div>
 
@@ -394,26 +375,23 @@ export default function MasterKanbanBoard({
         </div>
 
         {/* 3. AGENT RUNNING COLUMN (COLLAPSED BY DEFAULT) */}
-        <div className={`transition-all duration-300 w-full ${isRunningCollapsed ? 'md:w-44 md:flex-none' : 'flex-1'}`}>
+        <div className={`transition-all duration-300 w-full ${isRunningCollapsed ? 'md:w-52 md:flex-none' : 'flex-1'}`}>
           <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800 space-y-3 min-h-[400px]">
-            <div className="flex items-center justify-between text-xs font-bold text-cyan-400 pb-2 border-b border-slate-800">
-              <button
-                onClick={() => setIsRunningCollapsed(!isRunningCollapsed)}
-                className="flex items-center space-x-2 text-left hover:opacity-80"
-              >
+            <div 
+              onClick={() => setIsRunningCollapsed(!isRunningCollapsed)}
+              className="flex items-center justify-between text-xs font-bold text-cyan-400 pb-2 border-b border-slate-800 cursor-pointer hover:opacity-90"
+            >
+              <div className="flex items-center space-x-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
                 <span className="text-sm">Agent Running</span>
-              </button>
+              </div>
               <div className="flex items-center space-x-2">
-                <span className="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full font-mono text-xs border border-cyan-500/30">
+                <span className="bg-cyan-500/20 text-cyan-400 px-2.5 py-0.5 rounded-full font-mono text-xs border border-cyan-500/30">
                   {runningTasks.length}
                 </span>
-                <button
-                  onClick={() => setIsRunningCollapsed(!isRunningCollapsed)}
-                  className="text-slate-400 hover:text-white p-1"
-                >
+                <span className="text-slate-400 p-1">
                   {isRunningCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+                </span>
               </div>
             </div>
 
@@ -430,26 +408,23 @@ export default function MasterKanbanBoard({
         </div>
 
         {/* 4. COMPLETED COLUMN (COLLAPSED BY DEFAULT) */}
-        <div className={`transition-all duration-300 w-full ${isDoneCollapsed ? 'md:w-44 md:flex-none' : 'flex-1'}`}>
+        <div className={`transition-all duration-300 w-full ${isDoneCollapsed ? 'md:w-52 md:flex-none' : 'flex-1'}`}>
           <div className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800 space-y-3 min-h-[400px]">
-            <div className="flex items-center justify-between text-xs font-bold text-emerald-400 pb-2 border-b border-slate-800">
-              <button
-                onClick={() => setIsDoneCollapsed(!isDoneCollapsed)}
-                className="flex items-center space-x-2 text-left hover:opacity-80"
-              >
+            <div 
+              onClick={() => setIsDoneCollapsed(!isDoneCollapsed)}
+              className="flex items-center justify-between text-xs font-bold text-emerald-400 pb-2 border-b border-slate-800 cursor-pointer hover:opacity-90"
+            >
+              <div className="flex items-center space-x-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span className="text-sm">Completed</span>
-              </button>
+              </div>
               <div className="flex items-center space-x-2">
-                <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-mono text-xs border border-emerald-500/30">
+                <span className="bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-full font-mono text-xs border border-emerald-500/30">
                   {doneTasks.length}
                 </span>
-                <button
-                  onClick={() => setIsDoneCollapsed(!isDoneCollapsed)}
-                  className="text-slate-400 hover:text-white p-1"
-                >
+                <span className="text-slate-400 p-1">
                   {isDoneCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+                </span>
               </div>
             </div>
 
