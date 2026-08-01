@@ -162,6 +162,16 @@ def get_audit_logs():
     return get_orchestrator().get_audit_logs_with_stack()
 
 
+@app.post("/api/audit-logs/{audit_id}/revert")
+def revert_audit_entry_endpoint(audit_id: str):
+    """Atomically reverts a top-of-stack audit log entry by ID."""
+    reverted = get_orchestrator().revert_audit_entry(audit_id)
+    if not reverted:
+        raise HTTPException(status_code=400, detail="Audit entry cannot be reverted or not found.")
+    return get_orchestrator().get_audit_logs_with_stack()
+
+
+
 
 
 # =============================================================================

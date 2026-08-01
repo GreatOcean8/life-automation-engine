@@ -283,6 +283,20 @@ export default function App() {
     }
   };
 
+  const handleRevertAuditEntry = async (auditId) => {
+    try {
+      const res = await fetch(`/api/audit-logs/${auditId}/revert`, { method: 'POST' });
+      if (res.ok) {
+        const updatedLogs = await res.json();
+        setAuditLogs(updatedLogs);
+        showToast('Reverted action successfully!');
+        refreshAll();
+      }
+    } catch (err) {
+      showToast('Failed to revert action');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Toast Notification Banner */}
@@ -301,6 +315,7 @@ export default function App() {
         onTriggerMarket={handleTriggerMarket}
         onTriggerReceiptScan={handleTriggerReceiptScan}
         onOpenAuditModal={() => setIsAuditModalOpen(true)}
+        auditLogsCount={auditLogs.length}
       />
 
       {/* Main Content Area */}
@@ -362,10 +377,8 @@ export default function App() {
         isOpen={isAuditModalOpen}
         onClose={() => setIsAuditModalOpen(false)}
         auditLogs={auditLogs}
-        onRestoreTask={handleRestoreTask}
-        onRevertSkill={handleRevertSkill}
+        onRevertAuditEntry={handleRevertAuditEntry}
       />
     </div>
   );
 }
-

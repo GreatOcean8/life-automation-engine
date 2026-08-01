@@ -124,10 +124,9 @@ class SkillsEngine:
 
 
     def revert_skill(self, name: str, prev_state: Dict[str, Any]) -> SkillDefinition:
-        """Reverts a skill to a previous state."""
-        return self.save_or_update_skill(
-            name, 
-            prev_state["instructions"], 
-            prev_state["rules"], 
-            self.loaded_skills[name].ui_schema
-        )[0]
+        """Reverts a skill to a previous state safely."""
+        instructions = prev_state.get("instructions", "") if isinstance(prev_state, dict) else ""
+        rules = prev_state.get("rules", []) if isinstance(prev_state, dict) else []
+        ui_schema = self.loaded_skills[name].ui_schema if name in self.loaded_skills else {}
+        return self.save_or_update_skill(name, instructions, rules, ui_schema)[0]
+

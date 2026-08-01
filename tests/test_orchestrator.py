@@ -103,4 +103,40 @@ def test_sequential_lifo_audit_undo_stack():
     assert new_target_entries[1].can_revert is True
 
 
+def test_revert_audit_entry_undo_revert_flow():
+    orchestrator = MasterOrchestrator()
+    skill_name = "test_undo_skill"
+    
+    # Edit 1
+    orchestrator.skills_engine.save_or_update_skill(skill_name, "Version 1", ["Rule 1"])
+    orchestrator.log_audit("SKILL_UPDATED", "Human", "Edit 1", skill_name, previous_state={"instructions": "V0", "rules": []}, new_state={"instructions": "Version 1", "rules": ["Rule 1"]})
+
+    # Edit 2
+    orchestrator.skills_engine.save_or_update_skill(skill_name, "Version 2", ["Rule 1", "Rule 2"])
+    orchestrator.log_audit("SKILL_UPDATED", "Human", "Edit 2", skill_name, previous_state={"instructions": "Version 1", "rules": ["Rule 1"]}, new_state={"instructions": "Version 2", "rules": ["Rule 1", "Rule 2"]})
+
+    stack = orchestrator.get_audit_logs_with_stack()
+    top_entry = stack[0]
+    assert top_entry.can_revert is True
+
+    # Revert Edit 2 (restores Version 1, pushes SKILL_REVERTED to top)
+    reverted_entry = orchestrator.revert_audit_entry(top_entry.id)
+    assert reverted_entry is not None
+    assert reverted_entry.is_reverted is True
+
+    new_stack = orchestrator.get_audit_logs_with_stack()
+    new_top = new_stack[0]
+    assert new_top.action_type == "SKILL_REVERTED"
+    assert new_top.can_revert is True  # Can undo the revert!
+
+    # Undo the revert (restores Version 2!)
+    undone_entry = orchestrator.revert_audit_entry(new_top.id)
+    assert undone_entry is not None
+    assert undone_entry.is_reverted is True
+
+    final_skill = orchestrator.skills_engine.get_skill(skill_name)
+    assert final_skill.instructions == "Version 2"
+
+
+
 

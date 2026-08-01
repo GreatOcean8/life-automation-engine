@@ -268,7 +268,8 @@ class MasterOrchestrator(BaseOOAgent):
     def get_audit_logs_with_stack(self) -> List[AuditLogEntry]:
         """
         Returns audit logs with LIFO sequential revert eligibility computed.
-        Only TASK_DELETED and SKILL_UPDATED actions are revertable operations.
+        All state-altering actions (SKILL_UPDATED, SKILL_REVERTED, TASK_DELETED, TASK_RESTORED)
+        are revertable operations on a target's timeline stack.
         For any target, ONLY the most recent non-reverted change can be reverted.
         Older un-reverted changes are marked as is_blocked = True.
         """
@@ -276,15 +277,13 @@ class MasterOrchestrator(BaseOOAgent):
         for entry in self.audit_logs:
             entry.can_revert = False
             entry.is_blocked = False
-            if entry.action_type in ("TASK_DELETED", "SKILL_UPDATED") and not entry.is_reverted and entry.previous_state is not None:
+            if entry.action_type in ("TASK_DELETED", "SKILL_UPDATED", "SKILL_REVERTED", "TASK_RESTORED") and not entry.is_reverted and entry.previous_state is not None:
                 if entry.target_id not in seen_targets:
                     entry.can_revert = True
                     seen_targets.add(entry.target_id)
                 else:
                     entry.is_blocked = True
         return self.audit_logs
-
-
 
     def mark_audit_reverted(self, target_id: str, action_types: List[str]):
         """Marks the most recent active audit entry for target_id as reverted."""
@@ -294,6 +293,84 @@ class MasterOrchestrator(BaseOOAgent):
                 entry.can_revert = False
                 break
         save_audit_logs_to_disk(self.audit_logs)
+
+    def revert_audit_entry(self, audit_id: str) -> Optional[AuditLogEntry]:
+        """
+        Atomically reverts a specific top-of-stack audit log entry by ID.
+        Supports undoing skill updates, skill reverts, task deletions, and task restorations.
+        Pushes a new inverse audit entry to the top of the stack.
+        """
+        self.get_audit_logs_with_stack()
+        target_entry = next((e for e in self.audit_logs if e.id == audit_id), None)
+        if not target_entry or not target_entry.can_revert:
+            logger.warning(f"Audit entry {audit_id} cannot be reverted.")
+            return None
+
+        target_entry.is_reverted = True
+        target_entry.can_revert = False
+
+        if target_entry.action_type in ("SKILL_UPDATED", "SKILL_REVERTED"):
+            if target_entry.previous_state:
+                prev_instr = target_entry.previous_state.get("instructions", "")
+                prev_rules = target_entry.previous_state.get("rules", [])
+                
+                current_skill = self.skills_engine.get_skill(target_entry.target_id)
+                current_state = {
+                    "instructions": current_skill.instructions if current_skill else "",
+                    "rules": current_skill.rules if current_skill else []
+                }
+                
+                reverted = self.skills_engine.revert_skill(
+                    target_entry.target_id, 
+                    {"instructions": prev_instr, "rules": prev_rules}
+                )
+                
+                new_action_type = "SKILL_REVERTED" if target_entry.action_type == "SKILL_UPDATED" else "SKILL_UPDATED"
+                details_str = f"Reverted skill '{target_entry.target_id}' to previous snapshot" if target_entry.action_type == "SKILL_UPDATED" else f"Undid revert for skill '{target_entry.target_id}'"
+                
+                self.log_audit(
+                    action_type=new_action_type,
+                    author="Human",
+                    details=details_str,
+                    target_id=target_entry.target_id,
+                    previous_state=current_state,
+                    new_state={"instructions": reverted.instructions, "rules": reverted.rules}
+                )
+        elif target_entry.action_type == "TASK_DELETED":
+            task = self.tasks.get(target_entry.target_id)
+            if task and task.is_archived:
+                prev_state = task.model_dump()
+                task.is_archived = False
+                task.status = TaskStatus.TODO
+                task.add_log("Human", "Restored task from Archive.")
+                self.log_audit(
+                    action_type="TASK_RESTORED",
+                    author="Human",
+                    details=f"Restored task '{task.title}' to TODO board",
+                    target_id=task.task_id,
+                    previous_state=prev_state,
+                    new_state=task.model_dump()
+                )
+        elif target_entry.action_type == "TASK_RESTORED":
+            task = self.tasks.get(target_entry.target_id)
+            if task and not task.is_archived:
+                prev_state = task.model_dump()
+                task.is_archived = True
+                task.status = TaskStatus.CANCELLED
+                task.add_log("Human", "Undid task restoration (moved to Archive).")
+                self.log_audit(
+                    action_type="TASK_DELETED",
+                    author="Human",
+                    details=f"Archived task '{task.title}'",
+                    target_id=task.task_id,
+                    previous_state=prev_state,
+                    new_state=task.model_dump()
+                )
+
+        self.get_audit_logs_with_stack()
+        self.on_state_changed()
+        return target_entry
+
 
     @agentic_action(description="Restores/Reverts a deleted or archived task back to TODO list")
     def restore_task(self, task_id: str) -> Optional[Task]:
