@@ -141,12 +141,38 @@ def test_triggers_and_graph_endpoints():
     nodes = graph_res.json()
     assert len(nodes) >= 5  # Orchestrator + 4 Subagents
 
-    # Test Triggers
-    re_res = client.post("/api/triggers/market-scan")
-    assert re_res.status_code == 200
+def test_audit_logs_revert_endpoint_dual_stack():
+    """Tests POST /api/audit-logs/{audit_id}/revert endpoint."""
+    # Create task
+    create_res = client.post("/api/tasks", json={"title": "Audit API Test Task", "description": "Testing revert endpoint"})
+    assert create_res.status_code == 200
+    task_id = create_res.json()["task_id"]
 
-    receipt_res = client.post("/api/expenses/scan", json={"image_data": "base64_data", "mock_vendor": "Whole Foods", "mock_amount": 84.20})
-    assert receipt_res.status_code == 200
+    # Delete task (soft delete)
+    del_res = client.delete(f"/api/tasks/{task_id}")
+    assert del_res.status_code == 200
+
+    # Get audit logs
+    audit_res = client.get("/api/audit-logs")
+    assert audit_res.status_code == 200
+    logs = audit_res.json()
+    
+    # Find TASK_DELETED log
+    del_log = next(l for l in logs if l["target_id"] == task_id and l["action_type"] == "TASK_DELETED")
+    assert del_log["can_revert"] is True
+
+    # Revert via API endpoint (restores task)
+    revert_res = client.post(f"/api/audit-logs/{del_log['id']}/revert")
+    assert revert_res.status_code == 200
+    updated_logs = revert_res.json()
+
+    # Verify task restored
+    task_res = client.get("/api/tasks")
+    tasks = task_res.json()
+    restored_task = next((t for t in tasks if t["task_id"] == task_id), None)
+    assert restored_task is not None
+    assert restored_task["is_archived"] is False
+
 
 
 

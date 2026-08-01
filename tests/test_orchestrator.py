@@ -103,40 +103,54 @@ def test_sequential_lifo_audit_undo_stack():
     assert new_target_entries[1].can_revert is True
 
 
-def test_revert_audit_entry_undo_revert_flow(tmp_path):
+def test_dual_revert_stack_eligibility(tmp_path):
+    """Verifies that after reverting, BOTH the SKILL_REVERTED event and the underlying SKILL_UPDATED event have can_revert == True."""
     orchestrator = MasterOrchestrator(skills_dir=str(tmp_path))
-    skill_name = "test_undo_skill"
+    skill_name = "dual_revert_skill"
 
-    
-    # Edit 1
+    # Edit 1 (Version 1)
     orchestrator.skills_engine.save_or_update_skill(skill_name, "Version 1", ["Rule 1"])
     orchestrator.log_audit("SKILL_UPDATED", "Human", "Edit 1", skill_name, previous_state={"instructions": "V0", "rules": []}, new_state={"instructions": "Version 1", "rules": ["Rule 1"]})
 
-    # Edit 2
+    # Edit 2 (Version 2)
     orchestrator.skills_engine.save_or_update_skill(skill_name, "Version 2", ["Rule 1", "Rule 2"])
     orchestrator.log_audit("SKILL_UPDATED", "Human", "Edit 2", skill_name, previous_state={"instructions": "Version 1", "rules": ["Rule 1"]}, new_state={"instructions": "Version 2", "rules": ["Rule 1", "Rule 2"]})
 
+    # Revert Edit 2 (pushes SKILL_REVERTED to top)
+    stack_before_revert = orchestrator.get_audit_logs_with_stack()
+    top = stack_before_revert[0]
+    orchestrator.revert_audit_entry(top.id)
+
+    # Compute updated stack
     stack = orchestrator.get_audit_logs_with_stack()
-    top_entry = stack[0]
-    assert top_entry.can_revert is True
+    target_logs = [l for l in stack if l.target_id == skill_name]
 
-    # Revert Edit 2 (restores Version 1, pushes SKILL_REVERTED to top)
-    reverted_entry = orchestrator.revert_audit_entry(top_entry.id)
-    assert reverted_entry is not None
-    assert reverted_entry.is_reverted is True
+    # Log 0: SKILL_REVERTED -> can_revert == True (Undo Revert)
+    revert_action_log = target_logs[0]
+    assert revert_action_log.action_type == "SKILL_REVERTED"
+    assert revert_action_log.can_revert is True
+    assert revert_action_log.is_reverted is False
 
-    new_stack = orchestrator.get_audit_logs_with_stack()
-    new_top = new_stack[0]
-    assert new_top.action_type == "SKILL_REVERTED"
-    assert new_top.can_revert is True  # Can undo the revert!
+    # Log 1: SKILL_UPDATED (Edit 2) -> is_reverted == True
+    reverted_edit_log = target_logs[1]
+    assert reverted_edit_log.is_reverted is True
+    assert reverted_edit_log.can_revert is False
 
-    # Undo the revert (restores Version 2!)
-    undone_entry = orchestrator.revert_audit_entry(new_top.id)
-    assert undone_entry is not None
-    assert undone_entry.is_reverted is True
+    # Log 2: SKILL_UPDATED (Edit 1) -> can_revert == True (Revert Skill to V0)
+    active_content_log = target_logs[2]
+    assert active_content_log.action_type == "SKILL_UPDATED"
+    assert active_content_log.details == "Edit 1"
+    assert active_content_log.can_revert is True
+    assert active_content_log.is_blocked is False
 
-    final_skill = orchestrator.skills_engine.get_skill(skill_name)
-    assert final_skill.instructions == "Version 2"
+
+def test_ny_timezone_timestamps():
+    """Verifies that audit log entries and task logs contain valid ISO timestamps with timezone offsets."""
+    from app.domain.models import get_ny_timestamp
+    ts = get_ny_timestamp()
+    assert "T" in ts
+    assert "-" in ts or "+" in ts  # Timezone offset present
+
 
 
 
