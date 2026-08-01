@@ -12,18 +12,18 @@ export function CreateTaskModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-card p-6 rounded-2xl border border-slate-800 w-full max-w-md space-y-4">
+    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="glass-card p-6 rounded-2xl border border-amber-500/30 w-full max-w-md space-y-4 shadow-2xl">
         <h2 className="text-lg font-bold text-white">Create New Master TODO Task</h2>
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
-            <label className="text-xs text-slate-400 font-medium">Task Title</label>
+            <label className="text-xs text-amber-300 font-medium">Task Title</label>
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g., Book dental cleaning..."
-              className="w-full mt-1 p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white"
+              className="w-full mt-1 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none"
               required
             />
           </div>
@@ -33,7 +33,7 @@ export function CreateTaskModal({
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Additional task details..."
-              className="w-full mt-1 p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white"
+              className="w-full mt-1 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none"
               rows={3}
             />
           </div>
@@ -47,7 +47,7 @@ export function CreateTaskModal({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 text-xs font-bold rounded-lg hover:brightness-110"
+              className="px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-600 text-slate-950 text-xs font-bold rounded-lg hover:brightness-110 shadow-lg shadow-amber-500/20"
             >
               Create Task
             </button>
@@ -67,17 +67,17 @@ export function EditTaskModal({
   if (!task) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-card p-6 rounded-2xl border border-slate-800 w-full max-w-md space-y-4">
+    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="glass-card p-6 rounded-2xl border border-amber-500/30 w-full max-w-md space-y-4 shadow-2xl">
         <h2 className="text-lg font-bold text-white">Edit Task Details</h2>
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
-            <label className="text-xs text-slate-400 font-medium">Task Title</label>
+            <label className="text-xs text-amber-300 font-medium">Task Title</label>
             <input
               type="text"
               value={task.title}
               onChange={e => onChange({ ...task, title: e.target.value })}
-              className="w-full mt-1 p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white"
+              className="w-full mt-1 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none"
               required
             />
           </div>
@@ -86,7 +86,7 @@ export function EditTaskModal({
             <textarea
               value={task.description || ''}
               onChange={e => onChange({ ...task, description: e.target.value })}
-              className="w-full mt-1 p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white"
+              className="w-full mt-1 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none"
               rows={3}
             />
           </div>
@@ -96,7 +96,7 @@ export function EditTaskModal({
               <select
                 value={task.priority}
                 onChange={e => onChange({ ...task, priority: e.target.value })}
-                className="w-full mt-1 p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white"
+                className="w-full mt-1 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white cursor-pointer"
               >
                 <option value="LOW">LOW</option>
                 <option value="MEDIUM">MEDIUM</option>
@@ -109,7 +109,7 @@ export function EditTaskModal({
               <select
                 value={task.status}
                 onChange={e => onChange({ ...task, status: e.target.value })}
-                className="w-full mt-1 p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white"
+                className="w-full mt-1 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white cursor-pointer"
               >
                 <option value="TODO">TODO</option>
                 <option value="RUNNING">RUNNING</option>
@@ -129,7 +129,7 @@ export function EditTaskModal({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-xs font-semibold rounded-lg hover:brightness-110"
+              className="px-4 py-2 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-600 text-slate-950 text-xs font-bold rounded-lg hover:brightness-110 shadow-lg shadow-amber-500/20"
             >
               Save Changes
             </button>

@@ -201,10 +201,11 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Toast Notification Banner */}
       {notification && (
-        <div className="fixed top-4 right-4 z-50 bg-cyan-500 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-xl shadow-cyan-500/20 text-xs border border-cyan-400 animate-bounce">
+        <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-bold px-4 py-2.5 rounded-xl shadow-xl shadow-amber-500/20 text-xs border border-amber-300 animate-bounce">
           {notification}
         </div>
       )}
+
 
       {/* Modular Header */}
       <Header
