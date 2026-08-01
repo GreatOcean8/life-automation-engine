@@ -74,12 +74,13 @@ export default function Header({
           {/* Audit Log Button */}
           <button
             onClick={onOpenAuditModal}
-            className="px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 rounded-xl text-xs text-slate-200 flex items-center space-x-1.5 transition hover:border-amber-400"
-            title="Activity Audit Log & Undo"
+            className="px-3.5 py-1.5 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/40 rounded-xl text-xs text-amber-300 font-bold flex items-center space-x-2 transition hover:border-amber-400 shadow-md"
+            title="Activity Audit Log & Undo Engine"
           >
-            <History className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Audit Log & Undo</span>
+            <History className="w-4 h-4 text-amber-400" />
+            <span>Audit Log & Undo</span>
           </button>
+
 
           {/* Scalable Action Dispatcher Menu */}
           <div className="relative" ref={dropdownRef}>

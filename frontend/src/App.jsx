@@ -343,8 +343,10 @@ export default function App() {
             onApproveTask={handleApproveTask}
             onRejectTask={handleRejectTask}
             onUpdateTaskStatus={handleUpdateTaskStatus}
+            onOpenAuditModal={() => setIsAuditModalOpen(true)}
           />
         )}
+
 
         {activeTab === 'graph' && (
           <VisualGraphInspector

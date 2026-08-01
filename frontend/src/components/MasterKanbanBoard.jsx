@@ -12,7 +12,8 @@ export default function MasterKanbanBoard({
   onDelegateTask,
   onApproveTask,
   onRejectTask,
-  onUpdateTaskStatus
+  onUpdateTaskStatus,
+  onOpenAuditModal
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('ALL');
@@ -222,13 +223,23 @@ export default function MasterKanbanBoard({
           <p className="text-xs text-slate-400 mt-0.5">Focused TODO view with click-to-expand agent panels.</p>
         </div>
 
-        <button
-          onClick={onOpenCreateModal}
-          className="px-4 py-2.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-600 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/20 hover:brightness-110 transition"
-        >
-          <Plus className="w-4 h-4 text-slate-950" />
-          <span>Create New Task</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={onOpenAuditModal}
+            className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 rounded-xl text-xs font-bold text-amber-300 flex items-center justify-center space-x-1.5 shadow-lg transition"
+          >
+            <Clock className="w-4 h-4 text-amber-400" />
+            <span>Audit Log & Undo</span>
+          </button>
+          <button
+            onClick={onOpenCreateModal}
+            className="px-4 py-2.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-600 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/20 hover:brightness-110 transition"
+          >
+            <Plus className="w-4 h-4 text-slate-950" />
+            <span>Create New Task</span>
+          </button>
+        </div>
+
       </div>
 
       {/* Toolbar: Search, Filters & Sorting */}
