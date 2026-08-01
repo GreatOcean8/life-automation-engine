@@ -202,20 +202,22 @@ export function AuditLogModal({
 
   if (!isOpen) return null;
 
-  // Build friendly target list from audit logs
+  // Build friendly target list from audit logs defensively
   const targetOptions = React.useMemo(() => {
     const map = new Map();
     (auditLogs || []).forEach(log => {
-      if (!log.target_id) return;
+      if (!log || !log.target_id) return;
       if (!map.has(log.target_id)) {
         let label = log.target_id;
-        if (log.action_type.startsWith('SKILL')) {
+        const actionType = log.action_type || '';
+        if (actionType.startsWith('SKILL')) {
           label = `Skill: ${log.target_id}`;
-        } else if (log.action_type.startsWith('TASK')) {
-          const taskTitle = log.new_state?.title || log.previous_state?.title || log.details.replace(/^(Created task|Archived task|Restored task|Updated details for) '(.*)'$/, '$2');
+        } else if (actionType.startsWith('TASK')) {
+          const rawDetails = typeof log.details === 'string' ? log.details : '';
+          const taskTitle = log.new_state?.title || log.previous_state?.title || rawDetails.replace(/^(Created task|Archived task|Restored task|Updated details for) '(.*)'$/, '$2');
           label = `Task: ${taskTitle || log.target_id}`;
         }
-        map.set(log.target_id, { id: log.target_id, label, isSkill: log.action_type.startsWith('SKILL') });
+        map.set(log.target_id, { id: log.target_id, label, isSkill: actionType.startsWith('SKILL') });
       }
     });
     return Array.from(map.values());
@@ -223,9 +225,12 @@ export function AuditLogModal({
 
   // Filter logs based on category, target, and search text
   const filteredLogs = (auditLogs || []).filter(log => {
+    if (!log) return false;
+    const actionType = log.action_type || '';
+
     // 1. Category Filter
-    if (categoryFilter === 'TASKS' && !log.action_type.startsWith('TASK')) return false;
-    if (categoryFilter === 'SKILLS' && !log.action_type.startsWith('SKILL')) return false;
+    if (categoryFilter === 'TASKS' && !actionType.startsWith('TASK')) return false;
+    if (categoryFilter === 'SKILLS' && !actionType.startsWith('SKILL')) return false;
 
     // 2. Target Filter
     if (targetFilter !== 'ALL' && log.target_id !== targetFilter) return false;
@@ -235,7 +240,7 @@ export function AuditLogModal({
       const q = searchText.toLowerCase();
       const matchDetails = (log.details || '').toLowerCase().includes(q);
       const matchTarget = (log.target_id || '').toLowerCase().includes(q);
-      const matchAction = (log.action_type || '').toLowerCase().includes(q);
+      const matchAction = actionType.toLowerCase().includes(q);
       if (!matchDetails && !matchTarget && !matchAction) return false;
     }
     return true;
@@ -253,7 +258,7 @@ export function AuditLogModal({
         hour12: true
       }).format(date) + ' EDT';
     } catch (e) {
-      return isoStr.slice(11, 19);
+      return (isoStr || '').slice(11, 19);
     }
   };
 
@@ -314,7 +319,6 @@ export function AuditLogModal({
               <option key={t.id} value={t.id}>{t.label}</option>
             ))}
           </select>
-
 
           {/* Search Input */}
           <input
@@ -387,5 +391,6 @@ export function AuditLogModal({
     </div>
   );
 }
+
 
 
