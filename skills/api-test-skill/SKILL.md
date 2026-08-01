@@ -1,6 +1,6 @@
 ---
 name: api-test-skill
-description: Skill package for api-test-skill
+description: Created via API test
 rules:
 - Rule 1
 ui_schema:

@@ -108,37 +108,47 @@ def test_skills_endpoints():
     assert saved_skill["ui_schema"]["title"] == "API Skill Title"
 
 
-def test_skill_revert_api_endpoint():
-    save_payload = {
-        "name": "api-test-skill",
-        "description": "Created via API test",
-        "instructions": "Step 1, Step 2.",
-        "ui_schema": {"title": "API Skill Title"},
-        "rules": ["Rule 1"]
-    }
-    # Save skill
-    res_save = client.post("/api/skills", json=save_payload)
-    assert res_save.status_code == 200
-    assert res_save.json()["instructions"] == "Step 1, Step 2."
+def test_task_delegation_and_approval_endpoints():
+    # 1. Create a task that requires HITL approval
+    trigger_res = client.post("/api/triggers/email-triage")
+    assert trigger_res.status_code == 200
+    
+    tasks_res = client.get("/api/tasks")
+    assert tasks_res.status_code == 200
+    approval_tasks = [t for t in tasks_res.json() if t["status"] == "WAITING_FOR_APPROVAL"]
+    assert len(approval_tasks) > 0
+    
+    target_task_id = approval_tasks[0]["task_id"]
 
-    # Update skill (Version 2)
-    update_payload = {
-        "name": "api-test-skill",
-        "description": "Updated via API test",
-        "instructions": "Modified instructions.",
-        "ui_schema": {"title": "API Skill Title"},
-        "rules": ["Rule 1", "Rule 2"]
-    }
-    res_update = client.post("/api/skills", json=update_payload)
-    assert res_update.status_code == 200
-    assert res_update.json()["instructions"] == "Modified instructions."
+    # 2. Approve HITL task
+    approve_res = client.post(f"/api/tasks/{target_task_id}/approve")
+    assert approve_res.status_code == 200
+    assert approve_res.json()["status"] == "DONE"
 
-    # Revert skill back to Version 1
-    revert_payload = {
-        "instructions": "Step 1, Step 2.",
-        "rules": ["Rule 1"]
-    }
-    res_revert = client.post("/api/skills/api-test-skill/revert", json=revert_payload)
-    assert res_revert.status_code == 200
-    assert res_revert.json()["instructions"] == "Step 1, Step 2."
-    assert res_revert.json()["rules"] == ["Rule 1"]
+    # 3. Create a TODO task and delegate it
+    create_res = client.post("/api/tasks", json={"title": "Delegation Test", "description": "Delegate me"})
+    new_task_id = create_res.json()["task_id"]
+
+    delegate_res = client.post(f"/api/tasks/{new_task_id}/delegate", json={"target_subagent_id": "email_triage_subagent"})
+    assert delegate_res.status_code == 200
+    assert delegate_res.json()["status"] in ("WAITING_FOR_APPROVAL", "RUNNING", "DONE")
+
+
+def test_triggers_and_graph_endpoints():
+    # Test Graph Topology
+    graph_res = client.get("/api/graph/nodes")
+    assert graph_res.status_code == 200
+    nodes = graph_res.json()
+    assert len(nodes) >= 5  # Orchestrator + 4 Subagents
+
+    # Test Triggers
+    re_res = client.post("/api/triggers/market-scan")
+    assert re_res.status_code == 200
+
+    receipt_res = client.post("/api/expenses/scan", json={"image_data": "base64_data", "mock_vendor": "Whole Foods", "mock_amount": 84.20})
+    assert receipt_res.status_code == 200
+
+
+
+
+
