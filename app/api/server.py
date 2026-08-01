@@ -240,6 +240,7 @@ def revert_skill_endpoint(skill_name: str, payload: Dict[str, Any]):
     """Reverts a skill's instructions and rules back to a previous state."""
     orchestrator = get_orchestrator()
     reverted_skill = orchestrator.skills_engine.revert_skill(skill_name, payload)
+    orchestrator.mark_audit_reverted(skill_name, ["SKILL_UPDATED"])
     orchestrator.log_audit(
         action_type="SKILL_REVERTED",
         author="Human",
@@ -249,4 +250,3 @@ def revert_skill_endpoint(skill_name: str, payload: Dict[str, Any]):
         new_state={"instructions": reverted_skill.instructions, "rules": reverted_skill.rules}
     )
     return reverted_skill
-

@@ -64,3 +64,40 @@ def test_update_and_delete_task():
     assert len(orchestrator.audit_logs) >= 3
 
 
+def test_sequential_lifo_audit_undo_stack():
+    orchestrator = MasterOrchestrator()
+    target_id = "test_skill_target"
+
+    # Simulate 3 sequential edits
+    orchestrator.log_audit("SKILL_UPDATED", "Human", "Edit 1", target_id, previous_state={"ver": 1})
+    orchestrator.log_audit("SKILL_UPDATED", "Human", "Edit 2", target_id, previous_state={"ver": 2})
+    orchestrator.log_audit("SKILL_UPDATED", "Human", "Edit 3", target_id, previous_state={"ver": 3})
+
+    stack = orchestrator.get_audit_logs_with_stack()
+    target_entries = [e for e in stack if e.target_id == target_id]
+
+    # Only Edit 3 (most recent) should have can_revert == True
+    assert target_entries[0].details == "Edit 3"
+    assert target_entries[0].can_revert is True
+
+    # Older edits (Edit 2, Edit 1) must have can_revert == False
+    assert target_entries[1].details == "Edit 2"
+    assert target_entries[1].can_revert is False
+
+    assert target_entries[2].details == "Edit 1"
+    assert target_entries[2].can_revert is False
+
+    # Mark Edit 3 as reverted
+    orchestrator.mark_audit_reverted(target_id, ["SKILL_UPDATED"])
+    new_stack = orchestrator.get_audit_logs_with_stack()
+    new_target_entries = [e for e in new_stack if e.target_id == target_id]
+
+    # Now Edit 3 is is_reverted == True, and Edit 2 becomes the new candidate for revert (can_revert == True)!
+    assert new_target_entries[0].is_reverted is True
+    assert new_target_entries[0].can_revert is False
+
+    assert new_target_entries[1].is_reverted is False
+    assert new_target_entries[1].can_revert is True
+
+
+

@@ -265,6 +265,31 @@ class MasterOrchestrator(BaseOOAgent):
         )
         return True
 
+    def get_audit_logs_with_stack(self) -> List[AuditLogEntry]:
+
+        """
+        Returns audit logs with LIFO sequential revert eligibility computed.
+        For any target (task or skill), ONLY the most recent non-reverted change
+        can be reverted. Older changes cannot be reverted out-of-order.
+        """
+        seen_targets = set()
+        for entry in self.audit_logs:
+            entry.can_revert = False
+            if not entry.is_reverted and entry.previous_state is not None:
+                if entry.target_id not in seen_targets:
+                    entry.can_revert = True
+                    seen_targets.add(entry.target_id)
+        return self.audit_logs
+
+    def mark_audit_reverted(self, target_id: str, action_types: List[str]):
+        """Marks the most recent active audit entry for target_id as reverted."""
+        for entry in self.audit_logs:
+            if entry.target_id == target_id and entry.action_type in action_types and not entry.is_reverted:
+                entry.is_reverted = True
+                entry.can_revert = False
+                break
+        save_audit_logs_to_disk(self.audit_logs)
+
     @agentic_action(description="Restores/Reverts a deleted or archived task back to TODO list")
     def restore_task(self, task_id: str) -> Optional[Task]:
         task = self.tasks.get(task_id)
@@ -277,6 +302,8 @@ class MasterOrchestrator(BaseOOAgent):
         task.add_log("Human", "Restored task from Archive.")
         self.log(f"Human Restored Task: {task.title}")
 
+        self.mark_audit_reverted(task_id, ["TASK_DELETED"])
+
         self.log_audit(
             action_type="TASK_RESTORED",
             author="Human",
@@ -286,6 +313,7 @@ class MasterOrchestrator(BaseOOAgent):
             new_state=task.model_dump()
         )
         return task
+
 
 
     @agentic_action(description="Triggers periodic Email & Bill Triage audit")

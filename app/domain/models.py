@@ -48,12 +48,15 @@ class TaskLog(BaseModel):
 class AuditLogEntry(BaseModel):
     id: str
     timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    action_type: str  # "TASK_CREATED", "TASK_UPDATED", "TASK_DELETED", "TASK_RESTORED", "SKILL_UPDATED"
+    action_type: str  # "TASK_CREATED", "TASK_UPDATED", "TASK_DELETED", "TASK_RESTORED", "SKILL_UPDATED", "SKILL_REVERTED"
     author: str
     details: str
     target_id: str
     previous_state: Optional[Dict[str, Any]] = None
     new_state: Optional[Dict[str, Any]] = None
+    is_reverted: bool = False
+    can_revert: bool = False
+
 
 
 class Task(BaseModel):

@@ -232,27 +232,37 @@ export function AuditLogModal({
                 <div className="text-slate-200 font-medium">{log.details}</div>
               </div>
 
-              {log.action_type === 'TASK_DELETED' && (
-                <button
-                  onClick={() => onRestoreTask(log.target_id)}
-                  className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold flex items-center space-x-1 shrink-0 ml-2"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Restore Task</span>
-                </button>
-              )}
+              {log.is_reverted ? (
+                <span className="px-2.5 py-1 bg-slate-800 text-slate-400 rounded-lg text-[11px] font-medium flex items-center space-x-1 shrink-0 ml-2">
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  <span>Reverted</span>
+                </span>
+              ) : log.can_revert ? (
+                <>
+                  {log.action_type === 'TASK_DELETED' && (
+                    <button
+                      onClick={() => onRestoreTask(log.target_id)}
+                      className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold flex items-center space-x-1 shrink-0 ml-2"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Restore Task</span>
+                    </button>
+                  )}
 
-              {log.action_type === 'SKILL_UPDATED' && log.previous_state && (
-                <button
-                  onClick={() => onRevertSkill(log.target_id, log.previous_state)}
-                  className="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 rounded-lg text-xs font-bold flex items-center space-x-1 shrink-0 ml-2"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Revert Skill</span>
-                </button>
-              )}
+                  {log.action_type === 'SKILL_UPDATED' && log.previous_state && (
+                    <button
+                      onClick={() => onRevertSkill(log.target_id, log.previous_state)}
+                      className="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 rounded-lg text-xs font-bold flex items-center space-x-1 shrink-0 ml-2"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Revert Skill</span>
+                    </button>
+                  )}
+                </>
+              ) : null}
             </div>
           )) : (
+
             <div className="text-slate-500 text-xs py-12 text-center">No activity audit logs recorded yet.</div>
           )}
         </div>
