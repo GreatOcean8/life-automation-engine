@@ -6,8 +6,19 @@ Implements the Unified Master Task Model, Agent Graph Nodes, and Skill Schemas.
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
+
+DEFAULT_TIMEZONE = "America/New_York"
+
+def get_ny_timestamp(tz_name: str = DEFAULT_TIMEZONE) -> str:
+    """Returns ISO format timestamp in New York local timezone (America/New_York)."""
+    try:
+        return datetime.now(ZoneInfo(tz_name)).isoformat()
+    except Exception:
+        return datetime.now(timezone.utc).isoformat()
+
 
 
 class TaskStatus(str, Enum):
@@ -39,7 +50,7 @@ class TaskAction(BaseModel):
 
 
 class TaskLog(BaseModel):
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+    timestamp: str = Field(default_factory=get_ny_timestamp)
     author: str  # e.g., "Human", "MasterOrchestrator", "EmailSubagent"
     message: str
     details: Optional[Dict[str, Any]] = None
@@ -47,7 +58,7 @@ class TaskLog(BaseModel):
 
 class AuditLogEntry(BaseModel):
     id: str
-    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = Field(default_factory=get_ny_timestamp)
     action_type: str  # "TASK_CREATED", "TASK_UPDATED", "TASK_DELETED", "TASK_RESTORED", "SKILL_UPDATED", "SKILL_REVERTED"
     author: str
     details: str
@@ -57,6 +68,7 @@ class AuditLogEntry(BaseModel):
     is_reverted: bool = False
     can_revert: bool = False
     is_blocked: bool = False
+
 
 
 

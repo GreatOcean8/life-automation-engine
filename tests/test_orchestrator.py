@@ -103,9 +103,10 @@ def test_sequential_lifo_audit_undo_stack():
     assert new_target_entries[1].can_revert is True
 
 
-def test_revert_audit_entry_undo_revert_flow():
-    orchestrator = MasterOrchestrator()
+def test_revert_audit_entry_undo_revert_flow(tmp_path):
+    orchestrator = MasterOrchestrator(skills_dir=str(tmp_path))
     skill_name = "test_undo_skill"
+
     
     # Edit 1
     orchestrator.skills_engine.save_or_update_skill(skill_name, "Version 1", ["Rule 1"])

@@ -196,27 +196,140 @@ export function AuditLogModal({
   auditLogs,
   onRevertAuditEntry
 }) {
+  const [categoryFilter, setCategoryFilter] = React.useState('ALL'); // ALL, TASKS, SKILLS
+  const [targetFilter, setTargetFilter] = React.useState('ALL');
+  const [searchText, setSearchText] = React.useState('');
+
   if (!isOpen) return null;
+
+  // Build friendly target list from audit logs
+  const targetOptions = React.useMemo(() => {
+    const map = new Map();
+    (auditLogs || []).forEach(log => {
+      if (!log.target_id) return;
+      if (!map.has(log.target_id)) {
+        let label = log.target_id;
+        if (log.action_type.startsWith('SKILL')) {
+          label = `Skill: ${log.target_id}`;
+        } else if (log.action_type.startsWith('TASK')) {
+          const taskTitle = log.new_state?.title || log.previous_state?.title || log.details.replace(/^(Created task|Archived task|Restored task|Updated details for) '(.*)'$/, '$2');
+          label = `Task: ${taskTitle || log.target_id}`;
+        }
+        map.set(log.target_id, { id: log.target_id, label, isSkill: log.action_type.startsWith('SKILL') });
+      }
+    });
+    return Array.from(map.values());
+  }, [auditLogs]);
+
+  // Filter logs based on category, target, and search text
+  const filteredLogs = (auditLogs || []).filter(log => {
+    // 1. Category Filter
+    if (categoryFilter === 'TASKS' && !log.action_type.startsWith('TASK')) return false;
+    if (categoryFilter === 'SKILLS' && !log.action_type.startsWith('SKILL')) return false;
+
+    // 2. Target Filter
+    if (targetFilter !== 'ALL' && log.target_id !== targetFilter) return false;
+
+    // 3. Search Text Filter
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase();
+      const matchDetails = (log.details || '').toLowerCase().includes(q);
+      const matchTarget = (log.target_id || '').toLowerCase().includes(q);
+      const matchAction = (log.action_type || '').toLowerCase().includes(q);
+      if (!matchDetails && !matchTarget && !matchAction) return false;
+    }
+    return true;
+  });
+
+  const formatNYTime = (isoStr) => {
+    if (!isoStr || typeof isoStr !== 'string') return '';
+    try {
+      const date = new Date(isoStr);
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).format(date) + ' EDT';
+    } catch (e) {
+      return isoStr.slice(11, 19);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-card p-6 rounded-2xl border border-amber-500/30 w-full max-w-2xl space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+      <div className="glass-card p-6 rounded-2xl border border-amber-500/30 w-full max-w-3xl space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+        {/* Header Bar */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center space-x-2">
             <History className="w-5 h-5 text-amber-400" />
             <div>
-              <h2 className="text-base font-bold text-white">Activity Audit Trail & Revert History</h2>
-              <p className="text-xs text-slate-400">Track all changes and revert soft-deleted tasks, skill rules, or undo past reverts.</p>
+              <h2 className="text-base font-bold text-white">Activity Audit Trail & Revert Engine</h2>
+              <p className="text-xs text-slate-400">Track all changes, filter history, and revert tasks or skill rules.</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-3">
+            <span className="px-2 py-0.5 bg-amber-500/10 text-amber-300 border border-amber-500/20 rounded-md text-[10px] font-mono">
+              🕒 NY Time (America/New_York)
+            </span>
+            <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
+        {/* Filter Controls Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 bg-slate-900/90 rounded-xl border border-slate-800 text-xs">
+          {/* Category Tabs */}
+          <div className="flex items-center space-x-1 bg-slate-950/60 p-1 rounded-lg border border-slate-800">
+            <button
+              onClick={() => setCategoryFilter('ALL')}
+              className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition ${categoryFilter === 'ALL' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-white'}`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setCategoryFilter('TASKS')}
+              className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition ${categoryFilter === 'TASKS' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-white'}`}
+            >
+              Tasks Only
+            </button>
+            <button
+              onClick={() => setCategoryFilter('SKILLS')}
+              className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition ${categoryFilter === 'SKILLS' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-white'}`}
+            >
+              Skills Only
+            </button>
+          </div>
+
+          {/* Target/Skill Selector Dropdown */}
+          <select
+            value={targetFilter}
+            onChange={(e) => setTargetFilter(e.target.value)}
+            className="bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-300 focus:outline-none focus:border-amber-500/50 truncate max-w-full"
+          >
+            <option value="ALL">All Targets ({targetOptions.length})</option>
+            {targetOptions.map(t => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+          </select>
+
+
+          {/* Search Input */}
+          <input
+            type="text"
+            placeholder="Search details..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+          />
+        </div>
+
+        {/* Audit Logs Item List */}
         <div className="flex-1 overflow-auto space-y-2.5 pr-1">
-          {auditLogs && auditLogs.length > 0 ? auditLogs.map(log => (
-            <div key={log.id || Math.random()} className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs space-y-1.5 flex items-start justify-between">
+          {filteredLogs.length > 0 ? filteredLogs.map(log => (
+            <div key={log.id || Math.random()} className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs space-y-1.5 flex items-start justify-between hover:border-slate-700 transition">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
@@ -228,8 +341,8 @@ export function AuditLogModal({
                   }`}>
                     {log.action_type || 'EVENT'}
                   </span>
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    {log.timestamp && typeof log.timestamp === 'string' ? log.timestamp.slice(11, 19) : ''}
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    {formatNYTime(log.timestamp)}
                   </span>
                   <span className="text-[11px] text-slate-400 font-medium">by {log.author || 'System'}</span>
                 </div>
@@ -267,13 +380,12 @@ export function AuditLogModal({
               ) : null}
             </div>
           )) : (
-
-
-            <div className="text-slate-500 text-xs py-12 text-center">No activity audit logs recorded yet.</div>
+            <div className="text-slate-500 text-xs py-12 text-center">No activity audit logs found matching filters.</div>
           )}
         </div>
       </div>
     </div>
   );
 }
+
 

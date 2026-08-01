@@ -268,22 +268,33 @@ class MasterOrchestrator(BaseOOAgent):
     def get_audit_logs_with_stack(self) -> List[AuditLogEntry]:
         """
         Returns audit logs with LIFO sequential revert eligibility computed.
-        All state-altering actions (SKILL_UPDATED, SKILL_REVERTED, TASK_DELETED, TASK_RESTORED)
-        are revertable operations on a target's timeline stack.
-        For any target, ONLY the most recent non-reverted change can be reverted.
-        Older un-reverted changes are marked as is_blocked = True.
+        - Most recent active REVERT action (SKILL_REVERTED / TASK_RESTORED) for a target is revertable (Undo Revert).
+        - Most recent active CONTENT action (SKILL_UPDATED / TASK_DELETED) for a target is revertable (Revert Skill/Restore Task).
+        - Older content actions for that target are marked as is_blocked = True.
         """
-        seen_targets = set()
+        seen_revert_targets = set()
+        seen_content_targets = set()
+
         for entry in self.audit_logs:
             entry.can_revert = False
             entry.is_blocked = False
-            if entry.action_type in ("TASK_DELETED", "SKILL_UPDATED", "SKILL_REVERTED", "TASK_RESTORED") and not entry.is_reverted and entry.previous_state is not None:
-                if entry.target_id not in seen_targets:
+
+            if entry.is_reverted or entry.previous_state is None:
+                continue
+
+            if entry.action_type in ("SKILL_REVERTED", "TASK_RESTORED"):
+                if entry.target_id not in seen_revert_targets:
                     entry.can_revert = True
-                    seen_targets.add(entry.target_id)
+                    seen_revert_targets.add(entry.target_id)
+            elif entry.action_type in ("SKILL_UPDATED", "TASK_DELETED"):
+                if entry.target_id not in seen_content_targets:
+                    entry.can_revert = True
+                    seen_content_targets.add(entry.target_id)
                 else:
                     entry.is_blocked = True
+
         return self.audit_logs
+
 
     def mark_audit_reverted(self, target_id: str, action_types: List[str]):
         """Marks the most recent active audit entry for target_id as reverted."""
