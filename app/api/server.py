@@ -159,7 +159,8 @@ def restore_task_endpoint(task_id: str):
 @app.get("/api/audit-logs")
 def get_audit_logs():
     """Returns activity audit logs for change tracking and undo capability."""
-    return get_orchestrator().audit_logs
+    return get_orchestrator().get_audit_logs_with_stack()
+
 
 
 

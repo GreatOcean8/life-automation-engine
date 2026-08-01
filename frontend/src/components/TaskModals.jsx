@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertTriangle, RotateCcw, History, Trash2, X, Check } from 'lucide-react';
+import { AlertTriangle, RotateCcw, History, Trash2, X, Check, Lock } from 'lucide-react';
+
 
 
 export function CreateTaskModal({
@@ -263,7 +264,13 @@ export function AuditLogModal({
                     </button>
                   )}
                 </>
+              ) : log.is_blocked ? (
+                <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg text-[10px] font-medium flex items-center space-x-1 shrink-0 ml-2" title="You must revert newer changes for this skill first">
+                  <Lock className="w-3 h-3 text-amber-400" />
+                  <span>Revert newer change first</span>
+                </span>
               ) : null}
+
             </div>
           )) : (
 

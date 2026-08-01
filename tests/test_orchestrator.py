@@ -80,12 +80,15 @@ def test_sequential_lifo_audit_undo_stack():
     assert target_entries[0].details == "Edit 3"
     assert target_entries[0].can_revert is True
 
-    # Older edits (Edit 2, Edit 1) must have can_revert == False
+    # Older edits (Edit 2, Edit 1) must have can_revert == False and is_blocked == True
     assert target_entries[1].details == "Edit 2"
     assert target_entries[1].can_revert is False
+    assert target_entries[1].is_blocked is True
 
     assert target_entries[2].details == "Edit 1"
     assert target_entries[2].can_revert is False
+    assert target_entries[2].is_blocked is True
+
 
     # Mark Edit 3 as reverted
     orchestrator.mark_audit_reverted(target_id, ["SKILL_UPDATED"])

@@ -56,6 +56,7 @@ class AuditLogEntry(BaseModel):
     new_state: Optional[Dict[str, Any]] = None
     is_reverted: bool = False
     can_revert: bool = False
+    is_blocked: bool = False
 
 
 

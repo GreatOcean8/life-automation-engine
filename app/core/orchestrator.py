@@ -270,15 +270,20 @@ class MasterOrchestrator(BaseOOAgent):
         Returns audit logs with LIFO sequential revert eligibility computed.
         Only TASK_DELETED and SKILL_UPDATED actions are revertable operations.
         For any target, ONLY the most recent non-reverted change can be reverted.
+        Older un-reverted changes are marked as is_blocked = True.
         """
         seen_targets = set()
         for entry in self.audit_logs:
             entry.can_revert = False
+            entry.is_blocked = False
             if entry.action_type in ("TASK_DELETED", "SKILL_UPDATED") and not entry.is_reverted and entry.previous_state is not None:
                 if entry.target_id not in seen_targets:
                     entry.can_revert = True
                     seen_targets.add(entry.target_id)
+                else:
+                    entry.is_blocked = True
         return self.audit_logs
+
 
 
     def mark_audit_reverted(self, target_id: str, action_types: List[str]):
