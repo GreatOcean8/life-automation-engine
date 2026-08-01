@@ -267,6 +267,22 @@ export default function App() {
     }
   };
 
+  const handleRevertSkill = async (skillName, prevState) => {
+    try {
+      const res = await fetch(`/api/skills/${skillName}/revert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prevState)
+      });
+      if (res.ok) {
+        showToast(`Reverted skill '${skillName}' back to previous rules snapshot!`);
+        refreshAll();
+      }
+    } catch (err) {
+      showToast('Failed to revert skill');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Toast Notification Banner */}
@@ -347,7 +363,9 @@ export default function App() {
         onClose={() => setIsAuditModalOpen(false)}
         auditLogs={auditLogs}
         onRestoreTask={handleRestoreTask}
+        onRevertSkill={handleRevertSkill}
       />
     </div>
   );
 }
+

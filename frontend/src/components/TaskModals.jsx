@@ -192,7 +192,8 @@ export function AuditLogModal({
   isOpen,
   onClose,
   auditLogs,
-  onRestoreTask
+  onRestoreTask,
+  onRevertSkill
 }) {
   if (!isOpen) return null;
 
@@ -203,8 +204,8 @@ export function AuditLogModal({
           <div className="flex items-center space-x-2">
             <History className="w-5 h-5 text-amber-400" />
             <div>
-              <h2 className="text-base font-bold text-white">Activity Audit Trail & Undo History</h2>
-              <p className="text-xs text-slate-400">Track all changes and revert soft-deleted tasks back to your TODO list.</p>
+              <h2 className="text-base font-bold text-white">Activity Audit Trail & Revert History</h2>
+              <p className="text-xs text-slate-400">Track all changes and revert soft-deleted tasks or skill rules.</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
@@ -219,7 +220,8 @@ export function AuditLogModal({
                 <div className="flex items-center space-x-2">
                   <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
                     log.action_type === 'TASK_DELETED' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
-                    log.action_type === 'TASK_RESTORED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                    log.action_type === 'SKILL_UPDATED' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                    log.action_type === 'TASK_RESTORED' || log.action_type === 'SKILL_REVERTED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
                     'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                   }`}>
                     {log.action_type}
@@ -236,7 +238,17 @@ export function AuditLogModal({
                   className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold flex items-center space-x-1 shrink-0 ml-2"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Undo & Restore</span>
+                  <span>Restore Task</span>
+                </button>
+              )}
+
+              {log.action_type === 'SKILL_UPDATED' && log.previous_state && (
+                <button
+                  onClick={() => onRevertSkill(log.target_id, log.previous_state)}
+                  className="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 rounded-lg text-xs font-bold flex items-center space-x-1 shrink-0 ml-2"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Revert Skill</span>
                 </button>
               )}
             </div>
@@ -248,3 +260,4 @@ export function AuditLogModal({
     </div>
   );
 }
+

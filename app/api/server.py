@@ -214,16 +214,39 @@ def get_skills():
 
 
 @app.post("/api/skills", response_model=SkillDefinition)
-def save_skill(req: SkillSaveRequest):
-    """Saves or updates a skill package on disk, hot-reloading it instantly."""
-    updated = get_orchestrator().skills_engine.save_or_update_skill(
-        name=req.name,
-        instructions=req.instructions,
-        rules=req.rules,
-        ui_schema=req.ui_schema,
-        description=req.description or ""
+def save_skill_endpoint(skill: SkillDefinition):
+    """Saves or updates a skill package and logs changes to the Audit Trail."""
+    orchestrator = get_orchestrator()
+    skill_def, prev_state = orchestrator.skills_engine.save_or_update_skill(
+        name=skill.name,
+        instructions=skill.instructions,
+        rules=skill.rules,
+        ui_schema=skill.ui_schema,
+        description=skill.description
     )
-    if not updated:
-        raise HTTPException(status_code=500, detail="Failed to save skill package.")
-    return updated
+    orchestrator.log_audit(
+        action_type="SKILL_UPDATED",
+        author="Human",
+        details=f"Updated rules & instructions for skill '{skill.name}'",
+        target_id=skill.name,
+        previous_state=prev_state,
+        new_state={"instructions": skill.instructions, "rules": skill.rules}
+    )
+    return skill_def
+
+
+@app.post("/api/skills/{skill_name}/revert", response_model=SkillDefinition)
+def revert_skill_endpoint(skill_name: str, payload: Dict[str, Any]):
+    """Reverts a skill's instructions and rules back to a previous state."""
+    orchestrator = get_orchestrator()
+    reverted_skill = orchestrator.skills_engine.revert_skill(skill_name, payload)
+    orchestrator.log_audit(
+        action_type="SKILL_REVERTED",
+        author="Human",
+        details=f"Reverted skill '{skill_name}' to previous rules snapshot",
+        target_id=skill_name,
+        previous_state=None,
+        new_state={"instructions": reverted_skill.instructions, "rules": reverted_skill.rules}
+    )
+    return reverted_skill
 

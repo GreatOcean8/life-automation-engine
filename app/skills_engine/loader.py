@@ -75,29 +75,58 @@ class SkillsEngine:
     def get_skill(self, name: str) -> Optional[SkillDefinition]:
         return self.loaded_skills.get(name)
 
-    def save_or_update_skill(self, name: str, description: str, instructions: str, ui_schema: Dict = None, rules: List[str] = None) -> SkillDefinition:
-        """
-        Saves or updates a skill package directly from the mobile UI, triggering immediate hot-reload.
-        """
-        skill_folder = os.path.join(self.skills_dir, name)
-        os.makedirs(skill_folder, exist_ok=True)
-        skill_file = os.path.join(skill_folder, "SKILL.md")
+    def save_or_update_skill(
+        self, 
+        name: str, 
+        instructions: str, 
+        rules: List[str], 
+        ui_schema: Optional[Dict[str, Any]] = None,
+        description: Optional[str] = ""
+    ) -> Any:
+        """Saves a skill definition back to disk atomically and returns previous state for audit log."""
+        skill_dir = os.path.join(self.skills_dir, name)
+        os.makedirs(skill_dir, exist_ok=True)
+        file_path = os.path.join(skill_dir, "SKILL.md")
 
-        metadata = {
+        # Capture previous state if file exists
+        prev_instructions = ""
+        prev_rules = []
+        if name in self.loaded_skills:
+            prev_instructions = self.loaded_skills[name].instructions
+            prev_rules = list(self.loaded_skills[name].rules)
+
+        frontmatter = {
             "name": name,
-            "description": description,
-            "ui_schema": ui_schema or {},
-            "rules": rules or []
+            "description": description or f"Skill package for {name}",
+            "rules": rules
         }
+        if ui_schema:
+            frontmatter["ui_schema"] = ui_schema
 
-        yaml_str = yaml.dump(metadata, sort_keys=False)
-        full_content = f"---\n{yaml_str}---\n\n{instructions}"
+        yaml_content = yaml.safe_dump(frontmatter, sort_keys=False)
+        full_content = f"---\n{yaml_content}---\n\n{instructions}"
 
-        temp_skill_file = f"{skill_file}.tmp"
-        with open(temp_skill_file, "w", encoding="utf-8") as f:
+        temp_path = f"{file_path}.tmp"
+        with open(temp_path, "w", encoding="utf-8") as f:
             f.write(full_content)
-        os.replace(temp_skill_file, skill_file)
+        os.replace(temp_path, file_path)
 
-        logger.info(f"[HOT-RELOAD] Skill '{name}' updated on disk. Reloading skills engine...")
-        self.reload_skills()
-        return self.loaded_skills[name]
+        skill_def = SkillDefinition(
+            name=name,
+            description=description or f"Skill package for {name}",
+            rules=rules,
+            instructions=instructions,
+            ui_schema=ui_schema
+        )
+        self.loaded_skills[name] = skill_def
+        return skill_def, {"instructions": prev_instructions, "rules": prev_rules}
+
+
+    def revert_skill(self, name: str, prev_state: Dict[str, Any]) -> SkillDefinition:
+        """Reverts a skill to a previous state."""
+        return self.save_or_update_skill(
+            name, 
+            prev_state["instructions"], 
+            prev_state["rules"], 
+            self.loaded_skills[name].ui_schema
+        )[0]
