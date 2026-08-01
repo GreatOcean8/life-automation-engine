@@ -8,10 +8,20 @@ export default function SkillEditor({ skills, onSaveSkill }) {
   const [newRuleText, setNewRuleText] = useState('');
 
   useEffect(() => {
-    if (skills && skills.length > 0 && !selectedSkill) {
-      handleSelectSkill(skills[0]);
+    if (skills && skills.length > 0) {
+      if (!selectedSkill) {
+        handleSelectSkill(skills[0]);
+      } else {
+        const updated = skills.find(s => s.name === selectedSkill.name);
+        if (updated) {
+          setSelectedSkill(updated);
+          setEditInstructions(updated.instructions || '');
+          setEditRules(updated.rules || []);
+        }
+      }
     }
   }, [skills]);
+
 
   const handleSelectSkill = (skill) => {
     setSelectedSkill(skill);
