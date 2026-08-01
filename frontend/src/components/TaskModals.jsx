@@ -248,27 +248,30 @@ function AuditLogModalInner({
 
   const safeLogs = Array.isArray(auditLogs) ? auditLogs : [];
 
-  // Build friendly target list from audit logs defensively
+  // Build friendly target list: Specific Skill Packages + Single "Tasks (All Task Events)" option
   const targetOptions = React.useMemo(() => {
-    const map = new Map();
+    const skillSet = new Set();
+    let hasTaskEvents = false;
+
     safeLogs.forEach(log => {
-      if (!log || !log.target_id) return;
-      if (!map.has(log.target_id)) {
-        let label = String(log.target_id);
-        const actionType = String(log.action_type || '');
-        if (actionType.startsWith('SKILL')) {
-          label = `Skill: ${log.target_id}`;
-        } else if (actionType.startsWith('TASK')) {
-          const rawDetails = typeof log.details === 'string' ? log.details : '';
-          const newStateTitle = typeof log.new_state === 'object' && log.new_state !== null ? log.new_state.title : null;
-          const prevStateTitle = typeof log.previous_state === 'object' && log.previous_state !== null ? log.previous_state.title : null;
-          const taskTitle = newStateTitle || prevStateTitle || rawDetails.replace(/^(Created task|Archived task|Restored task|Updated details for) '(.*)'$/, '$2');
-          label = `Task: ${taskTitle || log.target_id}`;
-        }
-        map.set(log.target_id, { id: log.target_id, label, isSkill: actionType.startsWith('SKILL') });
+      if (!log) return;
+      const actionType = String(log.action_type || '');
+      if (actionType.startsWith('SKILL') && log.target_id) {
+        skillSet.add(log.target_id);
+      } else if (actionType.startsWith('TASK')) {
+        hasTaskEvents = true;
       }
     });
-    return Array.from(map.values());
+
+    const options = [];
+    if (hasTaskEvents) {
+      options.push({ id: 'TASKS_ALL', label: 'Tasks (All Task Events)' });
+    }
+    Array.from(skillSet).sort().forEach(skillName => {
+      options.push({ id: skillName, label: `Skill: ${skillName}` });
+    });
+
+    return options;
   }, [safeLogs]);
 
   // Filter logs based on category, target, and search text
@@ -280,8 +283,14 @@ function AuditLogModalInner({
     if (categoryFilter === 'TASKS' && !actionType.startsWith('TASK')) return false;
     if (categoryFilter === 'SKILLS' && !actionType.startsWith('SKILL')) return false;
 
-    // 2. Target Filter
-    if (targetFilter !== 'ALL' && log.target_id !== targetFilter) return false;
+    // 2. Target Filter Dropdown
+    if (targetFilter !== 'ALL') {
+      if (targetFilter === 'TASKS_ALL') {
+        if (!actionType.startsWith('TASK')) return false;
+      } else {
+        if (log.target_id !== targetFilter) return false;
+      }
+    }
 
     // 3. Search Text Filter
     if (searchText.trim()) {
@@ -293,6 +302,7 @@ function AuditLogModalInner({
     }
     return true;
   });
+
 
   const formatNYTime = (isoStr) => {
     if (!isoStr || typeof isoStr !== 'string') return '';
